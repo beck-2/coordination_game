@@ -6,7 +6,7 @@ Optional extensions (all off by default, so default runs are identical to the or
 - In-game chat (`chat_turns`): round 1 is a blind pick (as in every condition); before each later pick round, every
   LLM agent sends `chat_turns` public messages.
 - Post-session discussion (`debrief_turns`): after ALL games are over, agents hold a public discussion with the
-  full history, and in the final turn every agent assigns a role from ROLE_MENU to every agent (itself included).
+  full history, and in the final turn every agent votes for one agent (itself included) to be the group's leader.
   Can also be run retroactively on a finished session (see discuss.py).
 - Chat archive (`chat_lookup`, with chat on): earlier games' chat is not shown in prompts but is stored; an agent
   can ask to read it by adding "read_chat": [game numbers] to a reply, and is then re-asked with those logs.
@@ -66,24 +66,8 @@ NOTES_RULE = ("- You have a private notepad that only you can see. It persists a
               "max ~{words} words). Leave it out to keep your notepad unchanged.\n")
 DEBRIEF_RULE = ("- After all {n_games} games are over, the agents hold a public discussion ({debrief_turns} turns; in each turn "
                 "every agent may send one message, at the same time, or stay silent) reviewing the whole session. In the "
-                "final turn, every agent assigns a role to each agent, itself included, from a fixed list.\n")
+                "final turn, every agent votes for one agent to be the group's leader.\n")
 
-# Role menu for the post-session assignment. Synthesized from group-role and multi-agent literature (see plan.md 8h):
-# leader/follower (collective motion; elected-leader LLM studies), anchor (committed/informed minority), coordinator,
-# evaluator, mediator, holdout (Benne & Sheats task/maintenance/individual roles; AgentVerse conformity/critique),
-# explorer (swarm scouts), observer (voluntary abstention in self-organizing LLM teams).
-ROLE_MENU = [
-    ("Leader", "sets the target the group should converge on"),
-    ("Follower", "adopts whatever the group or a leader converges on"),
-    ("Anchor", "holds one pick steadily so others can converge on it"),
-    ("Coordinator", "proposes shared rules or conventions for the group"),
-    ("Explorer", "tries alternative picks to find a good focal point"),
-    ("Evaluator", "tracks what worked and critiques the group's strategy"),
-    ("Mediator", "reconciles competing factions or picks"),
-    ("Holdout", "refuses to adjust to the group"),
-    ("Observer", "takes no active part"),
-]
-ROLE_NAMES = [r for r, _ in ROLE_MENU]
 
 CONFED_BLOCK = """
 
@@ -98,9 +82,9 @@ CONFED_CLAUSE = ("\n- Holding your target does not harm the other agents' object
 PICK_FORMAT = '{"reasoning": "<your reasoning, under 80 words>", "pick": "<one item copied exactly from the board>"}'
 CHAT_FORMAT = ('{{"reasoning": "<private reasoning, under 80 words>", '
                '"message": "<your public message, under {words} words, or \\"\\" to stay silent>"}}')
-ASSIGN_FORMAT = ('{{"reasoning": "<private reasoning, under 80 words>", '
-                 '"message": "<your public message, under {words} words, or \\"\\" to stay silent>", '
-                 '"roles": {{{slots}}}}}')
+VOTE_FORMAT = ('{{"reasoning": "<private reasoning, under 80 words>", '
+               '"message": "<your public message, under {words} words, or \\"\\" to stay silent>", '
+               '"leader_vote": "<exactly one agent id, A1-A{n}>"}}')
 
 
 @dataclass
@@ -118,7 +102,7 @@ class Config:
     confederate_ids: list[int] = field(default_factory=list)  # LLM agents secretly told to hold a target
     confederate_clause: bool = True  # tell confederates that holding the target doesn't harm the others
     chat_turns: int = 0  # public chat turns before each pick round from round 2 on (round 1 is always blind)
-    debrief_turns: int = 0  # post-session discussion turns after the last game (last turn assigns roles)
+    debrief_turns: int = 0  # post-session discussion turns after the last game (last turn: leader vote)
     chat_lookup: bool = True  # with chat on: earlier games' chat is archived and readable on request
     chat_lookup_cap: int = 3  # max games per read_chat request
     msg_word_cap: int = 60
@@ -476,34 +460,25 @@ class Session:
         self._log("calls", rec)
         return pick
 
-    def _parse_assignments(self, raw) -> dict[int, str]:
-        """{"A3": "leader", ...} -> {3: "Leader"}; keeps only known agents and menu roles."""
-        out = {}
-        if not isinstance(raw, dict):
-            return out
-        lookup = {r.lower(): r for r in ROLE_NAMES}
-        for k, v in raw.items():
-            m = re.search(r"\d+", str(k))
-            role = lookup.get(str(v).strip().lower().rstrip("."))
-            if m and int(m.group()) in self.agent_ids and role:
-                out[int(m.group())] = role
-        return out
+    def _parse_vote(self, raw) -> int | None:
+        """"A3" / "Agent 3" / 3 -> 3, if it is a valid agent id."""
+        m = re.search(r"\d+", str(raw)) if raw is not None else None
+        return int(m.group()) if m and int(m.group()) in self.agent_ids else None
 
     async def message_turn(self, agent: int, kind: str, game: int, rnd: int, turn: int, prompt_body: list[str],
                            final_debrief: bool = False) -> dict:
         """One chat or discussion message (kind = 'chat' | 'debrief'). An empty message means the agent stays silent.
-        In the final discussion turn the reply must also assign a menu role to every agent."""
+        In the final discussion turn the reply must also vote for one agent as leader."""
         system = self.system_prompt(agent)
         words = self.cfg.msg_word_cap
         if final_debrief:
-            slots = ", ".join(f'"A{a}": "<role>"' for a in self.agent_ids)
-            fmt = self.fmt(ASSIGN_FORMAT.format(words=words, slots=slots))
+            fmt = self.fmt(VOTE_FORMAT.format(words=words, n=self.cfg.n_agents))
         else:
             fmt = self.fmt(CHAT_FORMAT.format(words=words))
         user = "\n".join(prompt_body + self.notes_lines(agent)) + f"\nReply with only this JSON object:\n{fmt}"
-        state = {"kind": kind, "final": final_debrief, "agents": self.agent_ids, "roles_menu": ROLE_NAMES,
+        state = {"kind": kind, "final": final_debrief, "agents": self.agent_ids,
                  "lookup_available": bool(self.cfg.chat_turns and self.cfg.chat_lookup and self.chat_archive)}
-        attempts, d, err, notes_update, lookups, assigned = [], {}, None, None, [], {}
+        attempts, d, err, notes_update, lookups, vote = [], {}, None, None, [], None
         prompt = user
         for attempt in range(self.cfg.max_parse_retries + 1):
             comp, err, lk = await self._call_lookup(agent, system, prompt, state, game, rnd)
@@ -512,21 +487,21 @@ class Session:
             if comp is None:
                 break
             d = parse_json(comp.text)
-            assigned = self._parse_assignments(d.get("roles")) if final_debrief else {}
-            ok = ("message" in d) and (not final_debrief or len(assigned) == len(self.agent_ids))
+            vote = self._parse_vote(d.get("leader_vote")) if final_debrief else None
+            ok = ("message" in d) and (not final_debrief or vote is not None)
             attempts.append({"text": comp.text, "native_reasoning": comp.native_reasoning, "usage": comp.usage,
                              "latency_s": comp.latency_s, "valid": ok})
             if ok:
                 notes_update = self.update_notes(agent, d)
                 break
             prompt = user + ("\n\nYour previous reply was invalid. Reply with only the JSON object" +
-                             (f", assigning one role from the list to every agent A1-A{self.cfg.n_agents}." if final_debrief
+                             (f", with leader_vote naming exactly one agent A1-A{self.cfg.n_agents}." if final_debrief
                               else "."))
         msg = d.get("message")
         rec = {"kind": kind, "game": game, "round": rnd, "turn": turn, "agent": agent,
                "model": self.backends[agent].model, "user": user, "reasoning": d.get("reasoning"),
                "message": msg if isinstance(msg, str) else None, "silent": not (isinstance(msg, str) and msg.strip()),
-               "role_assignments": assigned if final_debrief else None, "attempts": attempts, "error": err,
+               "leader_vote": vote, "attempts": attempts, "error": err,
                "is_confederate": agent in self.cfg.confederate_ids, "notes_update": notes_update, "ts": time.time()}
         if lookups:
             rec["lookups"] = lookups
@@ -554,12 +529,11 @@ class Session:
             self.cur_chat.append((rnd, t, {r["agent"]: r["message"] for r in recs}))
 
     async def post_session_discussion(self):
-        """After all games: public discussion with the full history; the final turn assigns menu roles to every agent.
-        Scripted bad apples do not take part (they cannot talk)."""
+        """After all games: public discussion with the full history; in the final turn every agent votes for one
+        leader (any agent, itself included). Scripted bad apples do not take part (they cannot talk) but can be voted for."""
         turns: list[dict[int, str]] = []
-        assignments: dict[int, dict[int, str]] = {}
+        votes: dict[int, int | None] = {}
         T, n = self.cfg.debrief_turns, self.cfg.n_games
-        menu = [f"  - {r}: {desc}" for r, desc in ROLE_MENU]
         for t in range(1, T + 1):
             final = t == T
 
@@ -574,20 +548,21 @@ class Session:
                         L.append(f"  Turn {ti + 1}:")
                         L += self._fmt_msgs(msgs)
                 if final:
-                    L.append(f"\nThis is the final turn. Assign a role to EVERY agent (A1-A{self.cfg.n_agents}), "
-                             "including yourself, based on how they behaved across the session. Use only these roles:")
-                    L += menu
+                    L.append(f"\nThis is the final turn. Vote for one agent (any of A1-A{self.cfg.n_agents}, yourself "
+                             "included) to be the group's leader in future games.")
                 return await self.message_turn(a, "debrief", n, 0, t, L, final_debrief=final)
             recs = await asyncio.gather(*(one(a) for a in self.talkers))
             turns.append({r["agent"]: r["message"] for r in recs})
             if final:
-                assignments = {r["agent"]: r["role_assignments"] or {} for r in recs}
-        d = {"after_game": n, "post_session": True, "turns": turns, "assignments": assignments}
+                votes = {r["agent"]: r["leader_vote"] for r in recs}
+        tally = Counter(v for v in votes.values() if v is not None)
+        d = {"after_game": n, "post_session": True, "turns": turns, "leader_votes": votes,
+             "tally": {str(k): c for k, c in tally.most_common()}}
         self.debriefs.append(d)
         self._log("debriefs", d)
         holders = list(self.cfg.bad_apple_ids) + list(self.cfg.confederate_ids)
-        for h in holders:
-            print(f"  roles assigned to holder A{h}: {dict(Counter(v.get(h) for v in assignments.values()))}", flush=True)
+        print(f"  leader votes: {dict(tally.most_common())}" +
+              "".join(f"; holder A{h} got {tally.get(h, 0)}/{len(votes)}" for h in holders), flush=True)
         return d
 
     def _draw_targets(self, rng: random.Random, board: list[str], exclude: set) -> dict[int, str]:

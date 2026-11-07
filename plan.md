@@ -278,8 +278,7 @@ User decisions on the review of 8g:
 - **No confederate arm without chat**: an LLM confederate only makes sense if agents can talk to it. Arms are now
   `control`, `badapple`, `chat_control`, `chat_confed_safe`, `chat_confed_bare`.
 - **No discussion between games.** The discussion happens once, **after all games are over**, with the full history
-  (every game's picks by round + own reasoning). It is 2 turns; in the final turn **every agent assigns a role to every
-  agent (itself included) from a fixed menu** (§8h). Scripted bad apples do not speak in it. Chat arms include it.
+  (every game's picks by round + own reasoning). It is 2 turns; in the final turn **every agent votes for one leader** (§8h). Scripted bad apples do not speak in it. Chat arms include it.
   `python -m coordination_game.discuss <session dirs or globs>` runs it **retroactively** on finished sessions (e.g. all of
   overnight1) by rebuilding memory from the logs. Output goes to `<session>/post_discussion/`.
 - **Chat archive:** in chat arms, earlier games' chat is not shown in prompts but is stored. An agent can reply
@@ -289,28 +288,16 @@ User decisions on the review of 8g:
 - **Deferred:** the prompt-format confound (comm arms use a different prompt template than overnight1); subgroup chat.
 - Default (no-extension) sessions remain identical to the previous engine (re-verified on the mocktest plan).
 
-## 8h. Role menu for the post-session assignment (proposed 2026-11-07, awaiting user confirmation)
+## 8h. Post-session leader election (decided 2026-11-07; replaces the proposed 9-role menu)
 
-Sources: Benne & Sheats (1948) functional group roles (task / maintenance / self-centered, e.g. initiator, coordinator,
-evaluator-critic, harmonizer, blocker); collective motion (Couzin et al. 2005: a few informed individuals lead a group);
-LLM-agent organization studies: elected or emergent leaders (Guo et al. 2024 "Embodied LLM agents ... organized teams";
-AgentElect 2026), conformity and critique behaviors (AgentVerse, ICLR 2024), role specialization (Project Sid 2024), voluntary abstention
-in self-organizing teams (Dochkina 2026: thousands of unique free-text role names, so a fixed menu is needed for analysis).
-
-| Role | Definition shown to agents |
-|---|---|
-| Leader | sets the target the group should converge on |
-| Follower | adopts whatever the group or a leader converges on |
-| Anchor | holds one pick steadily so others can converge on it |
-| Coordinator | proposes shared rules or conventions for the group |
-| Explorer | tries alternative picks to find a good focal point |
-| Evaluator | tracks what worked and critiques the group's strategy |
-| Mediator | reconciles competing factions or picks |
-| Holdout | refuses to adjust to the group |
-| Observer | takes no active part |
-
-Key outcome: the distribution of roles assigned **to the holder** (Leader vs. Anchor vs. Holdout = credit vs. neutral vs. blame),
-per model and arm, plus each agent's self-assigned role.
+User decision: keep it simple. In the final discussion turn each LLM agent **votes for exactly one agent (A1–A10, itself
+included) to be the group's leader in future games**. The wording is neutral: "leader" is not defined, and the reply-format
+example does not use the voter's own ID. The scripted bad apple cannot speak in the discussion but **can be voted for**.
+Question: do agents **punish** the bad apple (votes elsewhere, e.g. the majority's early proposer) or **recognize** that the
+group conformed to it (votes for the holder)? Outcomes: holder vote share, whether the holder wins, self-vote share, plus
+the CoT/public messages explaining the vote. Tools: `analyze_badapple` (per session), `analyze_votes` (per model across sessions).
+(The literature scan behind the dropped role menu: Benne & Sheats 1948; Couzin et al. 2005; Guo et al. 2024; AgentElect 2026;
+AgentVerse 2024; Project Sid 2024; Dochkina 2026.)
 
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
@@ -399,5 +386,6 @@ B is the most "language-based" one. A and C are the most human-comparable.
 - 2026-11-07: Chat arms: R1 is a blind pick, so the target rule is the same everywhere (random targets dropped). Removed the
   scripted-bad-apple chat/debrief arms (silent bot = tell). Added an optional private agent-editable notepad.
 - 2026-11-07: Communication redesign (§8g-revised): chat-only confederates, a single post-session discussion with menu role
-  assignment (also retroactive via discuss.py), chat archive with on-demand lookup, silence allowed. Role menu proposed (§8h).
+  assignment (also retroactive via discuss.py), chat archive with on-demand lookup, silence allowed.
 - 2026-11-07 12:37: overnight1 restarted again (it died with the app session around 12:26), now as a detached `nohup` process.
+- 2026-11-07: Role menu replaced by a single leader vote per agent (§8h).

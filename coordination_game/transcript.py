@@ -35,9 +35,8 @@ def main():
             for m in sorted((m for m in msgs if m["turn"] == turn), key=lambda m: m["agent"]):
                 said = m["message"] if (m.get("message") or "").strip() else "_(silent)_"
                 out.append(f"- **A{m['agent']}** says: {said}  \n  _private:_ {m['reasoning'] or '(none)'}")
-                if m.get("role_assignments"):
-                    out.append("  _assigns roles:_ " + ", ".join(
-                        f"A{k}={v}" for k, v in sorted(m["role_assignments"].items(), key=lambda x: int(x[0]))))
+                if m.get("leader_vote") is not None:
+                    out.append(f"  _votes for leader:_ **A{m['leader_vote']}**")
                 if m.get("notes_update"):
                     out.append(f"  _notepad →_ {m['notes_update']}")
         return out

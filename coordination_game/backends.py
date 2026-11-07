@@ -43,7 +43,7 @@ class MockBackend(Backend):
             out = {"reasoning": "mock", "message": "" if self.r.random() < 0.2 else f"mock {kind} message",
                    "notes": f"mock note ({kind})"}
             if state.get("final"):
-                out["roles"] = {f"A{a}": self.r.choice(state["roles_menu"]) for a in state["agents"]}
+                out["leader_vote"] = f"A{self.r.choice(state['agents'])}"
             return Completion(text=json.dumps(out))
         board, plur = state["board"], state.get("plurality")
         if state.get("target") is not None:  # confederate: hold the target

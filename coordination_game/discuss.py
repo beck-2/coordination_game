@@ -1,4 +1,4 @@
-"""Run the post-session discussion + role assignment on sessions that have already finished.
+"""Run the post-session discussion + leader vote on sessions that have already finished.
 
     python -m coordination_game.discuss runs/overnight1/badapple/glm-5.2/s0             # one session
     python -m coordination_game.discuss 'runs/overnight1/badapple/*/s*' --parallel 4    # many (quote the glob)
@@ -100,7 +100,7 @@ def main():
     load_dotenv(".env")
     p = argparse.ArgumentParser()
     p.add_argument("sessions", nargs="+", help="session dirs or quoted globs")
-    p.add_argument("--turns", type=int, default=2, help="discussion turns (the last assigns roles)")
+    p.add_argument("--turns", type=int, default=2, help="discussion turns (the last includes the leader vote)")
     p.add_argument("--out-name", default="post_discussion")
     p.add_argument("--parallel", type=int, default=4)
     p.add_argument("--dry-run", action="store_true")

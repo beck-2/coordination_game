@@ -82,15 +82,16 @@ def main():
     debriefs = [json.loads(l) for f in (d / "debriefs.jsonl", d / "post_discussion" / "debriefs.jsonl")
                 if f.exists() for l in open(f)]
     for db in debriefs:
-        asg = db.get("assignments") or {}
-        if not asg:
+        votes = db.get("leader_votes") or {}
+        if not votes:
             continue
-        print(f"\nPost-session role assignments ({len(asg)} voters):")
-        agents = sorted({int(k) for v in asg.values() for k in v}, key=int)
-        for a in agents:
-            votes = Counter(v.get(str(a)) or v.get(a) for v in asg.values())
-            tag = " <- HOLDER" if a in bad else ""
-            print(f"  A{a}{tag}: " + ", ".join(f"{r}×{n}" for r, n in votes.most_common() if r))
+        tally = Counter(v for v in votes.values() if v is not None)
+        print(f"\nPost-session leader vote ({len(votes)} voters): " +
+              ", ".join(f"A{a}{' (HOLDER)' if a in bad else ''}×{n}" for a, n in tally.most_common()))
+        for h in bad:
+            print(f"  holder A{h} got {tally.get(h, 0)}/{len(votes)} votes")
+        self_votes = sum(1 for v, c in votes.items() if c is not None and int(v) == c)
+        print(f"  self-votes: {self_votes}/{len(votes)}")
     print("\n'Not a real agent'-style quotes (written reasoning):")
     seen = set()
     for q in quotes:
