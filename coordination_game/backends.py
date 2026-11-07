@@ -44,7 +44,7 @@ class AdaptionBackend(Backend):
 
     def __init__(self, model: str, temperature: float | None = 1.2, max_output_tokens: int = 16000):
         from adaption import AsyncAdaption
-        self.client = AsyncAdaption(max_retries=4)
+        self.client = AsyncAdaption(max_retries=4, timeout=900)
         self.model, self.temperature, self.max_output_tokens = model, temperature, max_output_tokens
 
     async def complete(self, system: str, user: str, state: dict | None = None) -> Completion:

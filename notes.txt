@@ -21,3 +21,5 @@ DO THE CHESS CODE GAME!!!
 
 What can this work say about choosing Schelling points?? what about identifying such points in the broader internet??
 Did we use the phrase Schelling point in the prompt? What percent of agents mention this in their COT unprompted??
+
+Have the agents communicate after their runs... assign roles to one another. The confederate should actually secretly be an agent who's just been given a different goal than the rest of them!! That allows them to also communicate with the confederate and try to pressure them.

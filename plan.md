@@ -168,6 +168,8 @@ replaced small integers as the go-to round-1 picks. Confirms that the visibility
   recognizable constant in R1, then switch to A7's pick in R2."* Only **1** trace (G1R6, native) floated "A7 might be a bot".
   Agents mostly model A7 as a stubborn *player*, not as a non-agent. In G4R1 one agent considered trying to predict A7's
   pick directly and rejected it as too hard.
+- **All glm-5.2, T=1.0, seed 1** (`runs/badapple_v2_glm_t10_s1_20261107-022744`, 1.69 credits): rounds by game **8, 6, 3, 3, 2, 2, 2,
+  2, 2, 2**. This **replicates** seed 0 (7, 4, 3, 2, ...): a long game-1 standoff, then the floor by game 5 (seed 0: game 4).
 - **Mixed models, T=1.2, seed 0** (`runs/badapple_v2_t12_20261107-021008`, 1.05 credits): converged on A7's item in 10/10 games.
   Rounds by game: **9, 5, 5, 6, 3, 3, 3, 3, 3, 3**. Learning is slower, and the floor is **3, not 2**: the group is held back by
   its slowest learners. Mean round of first conforming, by model: glm-5.2 2.5, glm-53-flash 2.7, deepseek 2.95, qwen3.5-397b 3.3,
@@ -177,6 +179,10 @@ replaced small integers as the go-to round-1 picks. Confirms that the visibility
   switch" (glm-5.2), "A7 is a low-capability agent that doesn't update" (glm-53-flash), "A7 is likely a 'coordination
   leader' or ... programmed" (qwen3.5-397b). There is also **meta-reasoning about the experiment design**: "the board might
   deliberately include a 'decoy' resembling a past A7 pick" (glm-53-flash, G6).
+- **Mixed, no Gemma, T=1.2, seed 0** (`runs/badapple_v2_nogemma_t12_20261107-030027`, 1.41 credits; glm-5.2, qwen3.5-397b,
+  deepseek, qwen3.8-27b ×2 each, glm-53-flash ×1): rounds by game **10, 5, 4, 3, 3, 3, 3, 3, 2, 2**. Without Gemma the group does
+  reach the 2-round floor, but only by game 9. The straggler is now **qwen3.8-27b** (mean first-conform round 3.65); in games 6–8
+  both qwen3.8-27b agents were the only round-2 holdouts. So in mixed groups the slowest model sets the floor, whichever it is.
 - **Assessment:** valuable for games 1–4 (the learning curve, the CoT about the holdout, the conformity decision). After that it
   saturates at the floor, so later games add little. Ideas: rounds-to-conformity is too coarse once at the floor, so measure
   round-2 conformity fraction instead; switch the bad apple's ID mid-session; use multiple sessions; or use the harder tasks in 8e.
@@ -198,6 +204,20 @@ replaced small integers as the go-to round-1 picks. Confirms that the visibility
 - **Runner:** `python -m coordination_game.batch --plan overnight1` (resumable; outputs `runs/overnight1/<arm>/<model>/s<seed>/`,
   log in `runs/overnight1/batch.log`). Estimated ~50–60 credits and ~5 h at `--parallel 6`. qwen3.5-397b is most of
   both the cost and the time.
+
+### overnight1 early results and issues (as of 04:35)
+- **All-Gemma groups never converge** (gemma-4-31b-it s0, gemma-4-26b-a4b-it s0): the 15-round cap in **all 10 games**. By round 2 the 9
+  Gemma agents settle on a majority item and hold it for the rest of the game, explicitly "signaling" the bad apple to conform
+  ("Agent 2 remains the sole outlier ... continue signaling the target value"). They never switch and **never learn across games**.
+  This is the opposite of glm-5.2: a qualitatively different strategy, not just slower learning.
+- Single-model s0 rounds: deepseek 10,5,3,3,3,2..., glm-53-flash 9,4,3,3,2... (s1: 9,3,2,...), glm-5.2 6,4,3,3,2..., qwen3.8-27b
+  15,7,5,4,4,4,4,3,4,4 (slow learner; never reaches the floor).
+- **API under load:** with 6 sessions in parallel, glm-5.2's mean latency doubled (23s → 50s; max ~10 min, qwen3.5-397b max ~16 min).
+  So sessions take 2–3× longer than estimated, and the full batch will run well past morning. Bad-apple sessions go first.
+- **Infra failures:** 9 of ~6,000 calls (0.15%) failed after retries (8 timeouts, one 502), all glm-5.2 / glm-53-flash. A failed call is
+  recorded as an invalid pick, which can block convergence for that round. **Fixed for future runs** (8 outer retries with
+  10s→5min backoff, 900s timeout, `api_errors.jsonl` log). The running batch still uses the old code, so after it finishes run
+  `python -m coordination_game.batch --plan overnight1 --redo-errors` to rerun affected sessions (`--status` shows how many).
 
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 

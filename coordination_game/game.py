@@ -35,6 +35,7 @@ class Config:
     seed: int = 0
     concurrency: int = 10
     max_parse_retries: int = 1
+    api_attempts: int = 8  # outer retries per call on API errors (each also has the SDK's own retries)
     reasoning_char_cap: int = 600  # cap on each stored own-reasoning entry shown back to the agent
 
 
@@ -138,14 +139,17 @@ class Session:
         prompt = user
         for attempt in range(self.cfg.max_parse_retries + 1):
             comp, err = None, None
-            for k in range(3):
+            for k in range(self.cfg.api_attempts):
                 try:
                     async with self.sem:
                         comp = await self.backends[agent].complete(system, prompt, state)
+                    err = None
                     break
-                except Exception as e:  # network / API errors
+                except Exception as e:  # network / API errors: back off (10s, 20s, ... capped at 5 min)
                     err = f"{type(e).__name__}: {e}"
-                    await asyncio.sleep(2 ** k * 3)
+                    self._log("api_errors", {"game": game, "round": rnd, "agent": agent, "attempt": k, "error": err[:300],
+                                             "ts": time.time()})
+                    await asyncio.sleep(min(10 * 2 ** k, 300))
             if comp is None:
                 break
             reasoning, raw_pick = parse_response(comp.text)
