@@ -181,6 +181,24 @@ replaced small integers as the go-to round-1 picks. Confirms that the visibility
   saturates at the floor, so later games add little. Ideas: rounds-to-conformity is too coarse once at the floor, so measure
   round-2 conformity fraction instead; switch the bad apple's ID mid-session; use multiple sessions; or use the harder tasks in 8e.
 
+## 8f. Sample size and the overnight batch (decided 2026-11-07)
+
+- **Unit of analysis = session**, not game: the 10 games in a session share memory, so they are not independent.
+- **Outcomes per session:** game-1 standoff length; the game index at which rounds first hit the floor (learning speed);
+  total rounds; rounds per game (learning curve). Plus CoT coding (mentions of the bad apple, suspicion it isn't an agent).
+- **n = 10 bad-apple sessions per model** (7 models → 70) + **5 control sessions per model** (35; the control is nearly
+  deterministic, about 2 rounds, so 5 is enough as a baseline). Rationale: with 10 vs 10, a Mann–Whitney/t-test has ~80% power
+  for effect sizes d ≈ 1.3. The between-model gaps seen so far (e.g. glm-5.2 conforms around round 2.5 vs gemma around 4.3) look
+  at least that large. Within-model learning (game 1 vs game 10, paired) has far more power. n=5 detects only huge effects;
+  n=50 gives CIs ~2.2× narrower than n=10 at 5× the cost, so reserve it for specific follow-up contrasts.
+- **Analysis:** Kruskal–Wallis across models, then Holm-corrected pairwise tests. Treat overnight1 as the basis for a power
+  analysis: set any follow-up n from the observed variance *before* looking at the specific differences (no optional stopping).
+- **Single model per session** (all 9 LLM agents the same model). T = 1.0. v2 boards seeds 0–9. The bad-apple **ID varies by
+  seed** (A1–A8) so no result depends on one label (7 is itself a salient number).
+- **Runner:** `python -m coordination_game.batch --plan overnight1` (resumable; outputs `runs/overnight1/<arm>/<model>/s<seed>/`,
+  log in `runs/overnight1/batch.log`). Estimated ~50–60 credits and ~5 h at `--parallel 6`. qwen3.5-397b is most of
+  both the cost and the time.
+
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
 No public dataset of multi-number "boards" like ours turned up. Closest relevant resources:
@@ -257,3 +275,4 @@ B is the most "language-based" one. A and C are the most human-comparable.
   comma-grouped, or negative); negatives are decimals; large numbers only in scientific notation; no very simple fractions
   (num+den ≤ 8, plus 1/2-style). Every category appears ≥2 times (no lone item). Decimals have 2–4 places, no trailing zero.
   `boards.validate()` checks these rules. The user will hand-edit these later.
+- 2026-11-07: Sample size = 10 bad-apple sessions per model (single-model sessions) + 5 control; overnight batch plan `overnight1`.
