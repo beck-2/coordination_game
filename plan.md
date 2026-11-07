@@ -337,8 +337,29 @@ AgentVerse 2024; Project Sid 2024; Dochkina 2026.)
   discussion display and/or use non-numeric names.
 - In the glm-5.2 s0 discussion, the second turn shows vote cascades ("Multiple agents already endorsed A2"). No agent noticed that the
   holder never spoke in the discussion.
-- Still to do: the leader vote on control sessions (baseline for self-votes / A1 default); also on the two partial qwen3.5-397b
-  sessions? (no: they are incomplete).
+- Partial qwen3.5-397b sessions were not voted on (they are incomplete).
+
+### Leader-vote baseline on overnight1 control sessions (2026-11-07; 35 sessions, 2.65 credits, 0 failures)
+
+| model | sessions | A1 vote share | A1 won | unanimous | self-vote share |
+|---|---|---|---|---|---|
+| gemma-4-26b-a4b-it | 5 | 86% | 5/5 | 3 | 18% |
+| deepseek-v4-flash | 5 | 78% | 5/5 | 2 | 16% |
+| gemma-4-31b-it | 5 | 74% | 4/5 | 2 | 20% |
+| qwen3.8-27b | 5 | 68% | 4/5 | 3 | 14% |
+| qwen3.5-397b | 5 | 34% | 2/5 | 1 | 14% |
+| glm-5.2 | 5 | 34% | 2/5 | 4 | 10% |
+| glm-53-flash | 5 | 20% | 1/5 | 4 | 8% |
+
+- **The A1 label default is real and large:** with no bad apple, A1 wins 23/35 sessions (about 10% expected by chance). It is
+  strongest for Gemma, deepseek and qwen3.8-27b ("I vote for A1 to lead", often with no reason given). GLM models mostly elect on
+  merit instead: whoever most often picked the eventual consensus item in round 1 ("correct R1 picks in all 10 games").
+- **What this means for the bad-apple vote:** deepseek and qwen3.8-27b default to A1 in control, but in the bad-apple arm they elect
+  the holder (99% / 60%). So electing the holder overrides a strong label default, which makes that result stronger. For the
+  non-conformers (Gemma, qwen3.5-397b), choosing "lowest-numbered other agent" is the same default they use in control, so
+  *who* they elect carries no information. Only the 0% holder share does.
+- Self-votes are higher in control (8–20%) than among bad-apple conformers (0–1%), where support concentrates on the holder.
+- Fix before more vote runs (still open): shuffle the displayed agent order and/or use non-numeric names.
 
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
