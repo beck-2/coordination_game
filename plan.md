@@ -219,6 +219,23 @@ replaced small integers as the go-to round-1 picks. Confirms that the visibility
   10s→5min backoff, 900s timeout, `api_errors.jsonl` log). The running batch still uses the old code, so after it finishes run
   `python -m coordination_game.batch --plan overnight1 --redo-errors` to rerun affected sessions (`--status` shows how many).
 
+### overnight1 finished (2026-11-07 14:04): control baselines
+Batch done: 39 run this pass, 0 failed, and 0 sessions whose outcome was hit by an API failure (no redo needed). qwen3.5-397b badapple stopped at
+6/10 by choice (3 partial sessions left unfinished). Control arm, 5 sessions × 10 games per model:
+
+| model | converged | mean rounds | game-1 mean | max | cost (credits) |
+|---|---|---|---|---|---|
+| glm-53-flash | 50/50 | 1.54 | 2.0 | 4 | 0.4 |
+| glm-5.2 | 50/50 | 1.72 | 2.0 | 3 | 2.8 |
+| qwen3.5-397b | 50/50 | 1.92 | 2.0 | 3 | 10.3 |
+| deepseek-v4-flash | 50/50 | 1.94 | 2.2 | 3 | 0.1 |
+| qwen3.8-27b | 50/50 | 2.02 | 2.0 | 5 | 1.3 |
+| gemma-4-26b-a4b-it | 50/50 | 2.16 | 2.6 | 4 | 0.2 |
+| gemma-4-31b-it | 50/50 | 2.54 | 2.2 | 4 | 0.2 |
+
+Every model can coordinate (round-2 plurality copying), so the Gemma and qwen3.5-397b failures in the bad-apple arm come from
+how they handle the holdout, not from inability to coordinate. Control is still at floor (see 8b). It is not a hard task.
+
 ## 8g. Extension: LLM confederate, post-game debrief, in-game chat (implemented 2026-11-07, not yet run)
 
 From notes.txt: "the confederate should actually secretly be an agent who's just been given a different goal ... that allows
