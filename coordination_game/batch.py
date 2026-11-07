@@ -60,9 +60,17 @@ def session_dir(plan_name, arm, model, seed) -> Path:
 
 
 def has_failed_calls(d: Path) -> bool:
-    """True if any call in the session ended with an API error (its pick was recorded as invalid)."""
-    f = d / "calls.jsonl"
-    return f.exists() and any(json.loads(l).get("error") for l in open(f))
+    """True if an API failure actually cost a pick AND blocked a round that was otherwise unanimous.
+
+    (Older runs recorded `error` even when a retry later succeeded, so `error` alone over-counts.)"""
+    f, rf = d / "calls.jsonl", d / "rounds.jsonl"
+    if not f.exists() or not rf.exists():
+        return False
+    failed = {(c["game"], c["round"]) for c in map(json.loads, open(f)) if c.get("error") and c.get("pick") is None}
+    for r in map(json.loads, open(rf)):
+        if (r["game"], r["round"]) in failed and len({p for p in r["picks"].values() if p is not None}) == 1:
+            return True
+    return False
 
 
 def is_done(d: Path, n_games: int) -> bool:
@@ -99,7 +107,8 @@ async def run_one(plan_name, arm, model, seed, boards, log, redo_errors=False):
     return "done"
 
 
-async def run_plan(plan_name: str, parallel: int, quiet: bool, redo_errors: bool = False):
+async def run_plan(plan_name: str, parallel: int, quiet: bool, redo_errors: bool = False,
+                   skip_models: list[str] | None = None):
     plan = PLANS[plan_name]
     boards = json.loads(Path(plan["boards"]).read_text())
     root = Path("runs") / plan_name
@@ -117,7 +126,10 @@ async def run_plan(plan_name: str, parallel: int, quiet: bool, redo_errors: bool
         async with sem:
             return await run_one(plan_name, *s, boards, log, redo_errors=redo_errors)
 
-    todo = sessions(plan_name)
+    skip = set(skip_models or [])
+    todo = [s for s in sessions(plan_name) if s[1] not in skip and f"{s[0]}:{s[1]}" not in skip]
+    if skip_models:
+        log(f"skipping models: {skip_models}")
     log(f"plan {plan_name}: {len(todo)} sessions, parallel={parallel}")
     if quiet:
         import contextlib, io  # silence per-round prints from Session; keep batch log lines
@@ -137,7 +149,7 @@ def status(plan_name: str):
         r = rows.setdefault((arm, model), [0, 0, 0, 0])
         r[0] += n >= plan["n_games"]; r[1] += 0 < n < plan["n_games"]; r[2] += 1
         r[3] += n >= plan["n_games"] and has_failed_calls(d)
-    print(f"{'arm':9s} {'model':20s} done/total (partial) [done with failed calls]")
+    print(f"{'arm':9s} {'model':20s} done/total (partial) [done, outcome hit by API failure]")
     for (arm, model), (done, part, tot, bad) in rows.items():
         print(f"{arm:9s} {model:20s} {done:>2}/{tot:<2} ({part}) [{bad}]")
 
@@ -149,6 +161,7 @@ def main():
     p.add_argument("--parallel", type=int, default=6, help="sessions at once (each makes up to 10 concurrent calls)")
     p.add_argument("--status", action="store_true")
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--skip-models", nargs="*", default=[], help="leave out of this launch: MODEL (all arms) or ARM:MODEL, e.g. badapple:qwen3.5-397b")
     p.add_argument("--redo-errors", action="store_true",
                    help="also rerun finished sessions that contain failed API calls")
     p.add_argument("--verbose", action="store_true", help="print every round, not just session start/finish")
@@ -160,7 +173,8 @@ def main():
             arm, model, seed = s
             print(arm, model, f"s{seed}", f"bad=A{bad_apple_id(seed, 10)}" if arm == "badapple" else "")
         return
-    asyncio.run(run_plan(a.plan, a.parallel, quiet=not a.verbose, redo_errors=a.redo_errors))
+    asyncio.run(run_plan(a.plan, a.parallel, quiet=not a.verbose, redo_errors=a.redo_errors,
+                         skip_models=a.skip_models))
 
 
 if __name__ == "__main__":

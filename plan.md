@@ -296,3 +296,8 @@ B is the most "language-based" one. A and C are the most human-comparable.
   (num+den ≤ 8, plus 1/2-style). Every category appears ≥2 times (no lone item). Decimals have 2–4 places, no trailing zero.
   `boards.validate()` checks these rules. The user will hand-edit these later.
 - 2026-11-07: Sample size = 10 bad-apple sessions per model (single-model sessions) + 5 control; overnight batch plan `overnight1`.
+- 2026-11-07 11:27: **Stopped qwen3.5-397b bad-apple sessions at n=6** (user decision). It converged in 0/60 games, costs ~17 credits
+  per session, and takes ~200 min per session. Its partial sessions s6–s8 are incomplete and excluded from analysis. Its 5 control
+  sessions still run. The batch had died with the previous app session around 11:18 and was resumed with
+  `--skip-models badapple:qwen3.5-397b`. Unfinished sessions of other models restarted from scratch. Batch spend before resuming:
+  ~181 credits (145 of them qwen3.5-397b).
