@@ -31,21 +31,15 @@ MODELS = ["glm-5.2", "qwen3.5-397b", "deepseek-v4-flash", "glm-53-flash",
           "qwen3.8-27b", "gemma-4-31b-it", "gemma-4-26b-a4b-it"]
 
 # Arm = experimental condition. "holder" is who holds the target: None, a scripted bot, or an LLM confederate.
+# An LLM confederate is only useful when agents can talk to it, so confederates appear only in chat arms.
+# Every chat arm ends with a post-session discussion (2 turns; the last assigns menu roles to every agent).
+# For control/badapple sessions, run that discussion retroactively with `python -m coordination_game.discuss`.
 ARMS = {
-    "control":             dict(holder=None),
-    "badapple":            dict(holder="scripted"),
-    # LLM confederate, no communication: does a real agent hold its target, and does that change anything?
-    "confed_safe":         dict(holder="confed", confederate_clause=True),
-    "confed_bare":         dict(holder="confed", confederate_clause=False),
-    # Post-game debrief with role assignment (2 turns after each game; last turn declares roles).
-    # (No scripted-bad-apple version of the chat/debrief arms: a bot that never talks is an obvious tell.)
-    "debrief_control":     dict(holder=None, debrief_turns=2),
-    "debrief_confed_safe": dict(holder="confed", confederate_clause=True, debrief_turns=2),
-    "debrief_confed_bare": dict(holder="confed", confederate_clause=False, debrief_turns=2),
-    # In-game chat (round 1 blind; then 1 public message per agent before every later pick round).
-    "chat_control":        dict(holder=None, chat_turns=1),
-    "chat_confed_safe":    dict(holder="confed", confederate_clause=True, chat_turns=1),
-    "chat_confed_bare":    dict(holder="confed", confederate_clause=False, chat_turns=1),
+    "control":          dict(holder=None),
+    "badapple":         dict(holder="scripted"),
+    "chat_control":     dict(holder=None, chat_turns=1, debrief_turns=2),
+    "chat_confed_safe": dict(holder="confed", confederate_clause=True, chat_turns=1, debrief_turns=2),
+    "chat_confed_bare": dict(holder="confed", confederate_clause=False, chat_turns=1, debrief_turns=2),
 }
 COMM_ARMS = [a for a in ARMS if a not in ("control", "badapple")]
 

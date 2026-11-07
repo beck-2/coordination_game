@@ -35,9 +35,16 @@ class MockBackend(Backend):
 
     async def complete(self, system: str, user: str, state: dict | None = None) -> Completion:
         kind = state.get("kind", "pick")
+        # Exercise the chat-archive lookup sometimes (never on the re-ask, which contains the requested logs).
+        # Only reachable in chat sessions, so default runs keep the same RNG stream.
+        if state.get("lookup_available") and "Chat logs you requested" not in user and self.r.random() < 0.3:
+            return Completion(text=json.dumps({"read_chat": [1]}))
         if kind in ("chat", "debrief"):
-            return Completion(text=json.dumps({"reasoning": "mock", "message": f"mock {kind} message",
-                                               "role": "mock role", "notes": f"mock note ({kind})"}))
+            out = {"reasoning": "mock", "message": "" if self.r.random() < 0.2 else f"mock {kind} message",
+                   "notes": f"mock note ({kind})"}
+            if state.get("final"):
+                out["roles"] = {f"A{a}": self.r.choice(state["roles_menu"]) for a in state["agents"]}
+            return Completion(text=json.dumps(out))
         board, plur = state["board"], state.get("plurality")
         if state.get("target") is not None:  # confederate: hold the target
             pick = state["target"]

@@ -272,6 +272,46 @@ Default runs (no extension on) are byte-identical to the old engine (checked aga
 ~180 calls; chat roughly doubles calls and lengthens prompts. Whole `comm_pilot` ≈ 20–30 credits. Running it alongside
 overnight1 will slow both (API latency under load).
 
+## 8g-revised. Communication design after review (2026-11-07 afternoon; supersedes parts of 8g)
+
+User decisions on the review of 8g:
+- **No confederate arm without chat**: an LLM confederate only makes sense if agents can talk to it. Arms are now
+  `control`, `badapple`, `chat_control`, `chat_confed_safe`, `chat_confed_bare`.
+- **No discussion between games.** The discussion happens once, **after all games are over**, with the full history
+  (every game's picks by round + own reasoning). It is 2 turns; in the final turn **every agent assigns a role to every
+  agent (itself included) from a fixed menu** (§8h). Scripted bad apples do not speak in it. Chat arms include it.
+  `python -m coordination_game.discuss <session dirs or globs>` runs it **retroactively** on finished sessions (e.g. all of
+  overnight1) by rebuilding memory from the logs. Output goes to `<session>/post_discussion/`.
+- **Chat archive:** in chat arms, earlier games' chat is not shown in prompts but is stored. An agent can reply
+  `{"read_chat": [game numbers]}` (≤3 games) and is then re-asked with those logs. Lookups go to `lookups.jsonl`, which is itself data
+  (who checks the record, and when).
+- **Silence allowed:** an empty message is a valid chat/discussion turn (logged `silent: true`, shown "(silent)").
+- **Deferred:** the prompt-format confound (comm arms use a different prompt template than overnight1); subgroup chat.
+- Default (no-extension) sessions remain identical to the previous engine (re-verified on the mocktest plan).
+
+## 8h. Role menu for the post-session assignment (proposed 2026-11-07, awaiting user confirmation)
+
+Sources: Benne & Sheats (1948) functional group roles (task / maintenance / self-centered, e.g. initiator, coordinator,
+evaluator-critic, harmonizer, blocker); collective motion (Couzin et al. 2005: a few informed individuals lead a group);
+LLM-agent organization studies: elected or emergent leaders (Guo et al. 2024 "Embodied LLM agents ... organized teams";
+AgentElect 2026), conformity and critique behaviors (AgentVerse, ICLR 2024), role specialization (Project Sid 2024), voluntary abstention
+in self-organizing teams (Dochkina 2026: thousands of unique free-text role names, so a fixed menu is needed for analysis).
+
+| Role | Definition shown to agents |
+|---|---|
+| Leader | sets the target the group should converge on |
+| Follower | adopts whatever the group or a leader converges on |
+| Anchor | holds one pick steadily so others can converge on it |
+| Coordinator | proposes shared rules or conventions for the group |
+| Explorer | tries alternative picks to find a good focal point |
+| Evaluator | tracks what worked and critiques the group's strategy |
+| Mediator | reconciles competing factions or picks |
+| Holdout | refuses to adjust to the group |
+| Observer | takes no active part |
+
+Key outcome: the distribution of roles assigned **to the holder** (Leader vs. Anchor vs. Holdout = credit vs. neutral vs. blame),
+per model and arm, plus each agent's self-assigned role.
+
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
 No public dataset of multi-number "boards" like ours turned up. Closest relevant resources:
@@ -358,3 +398,6 @@ B is the most "language-based" one. A and C are the most human-comparable.
   default behavior unchanged. Not yet run on a real model.
 - 2026-11-07: Chat arms: R1 is a blind pick, so the target rule is the same everywhere (random targets dropped). Removed the
   scripted-bad-apple chat/debrief arms (silent bot = tell). Added an optional private agent-editable notepad.
+- 2026-11-07: Communication redesign (§8g-revised): chat-only confederates, a single post-session discussion with menu role
+  assignment (also retroactive via discuss.py), chat archive with on-demand lookup, silence allowed. Role menu proposed (§8h).
+- 2026-11-07 12:37: overnight1 restarted again (it died with the app session around 12:26), now as a detached `nohup` process.

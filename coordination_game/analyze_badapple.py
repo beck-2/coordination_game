@@ -8,7 +8,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
-from collections import defaultdict
+from collections import Counter, defaultdict
 from pathlib import Path
 
 STUBBORN = r"stubborn|never (chang|mov|switch|budg)|hasn'?t (chang|mov)|always (pick|chose|choos|stay)|refus|won'?t (chang|mov)|fixed|committed|holdout|anchor|consistent(ly)?"
@@ -79,11 +79,18 @@ def main():
         print(f"\nConfederate defections (picked something other than its target): {len(broke)}")
         for c in broke[:10]:
             print(f"  G{c['game']} R{c['round']} A{c['agent']} picked {c['pick']!r} (target {c.get('target')!r}): {c['reasoning']}")
-    debriefs = [json.loads(l) for l in open(d / "debriefs.jsonl")] if (d / "debriefs.jsonl").exists() else []
-    if debriefs:
-        print("\nRoles declared after each game:")
-        for db in debriefs:
-            print(f"  after G{db['after_game']}: " + "; ".join(f"A{a}: {r}" for a, r in sorted(db["roles"].items(), key=lambda x: int(x[0]))))
+    debriefs = [json.loads(l) for f in (d / "debriefs.jsonl", d / "post_discussion" / "debriefs.jsonl")
+                if f.exists() for l in open(f)]
+    for db in debriefs:
+        asg = db.get("assignments") or {}
+        if not asg:
+            continue
+        print(f"\nPost-session role assignments ({len(asg)} voters):")
+        agents = sorted({int(k) for v in asg.values() for k in v}, key=int)
+        for a in agents:
+            votes = Counter(v.get(str(a)) or v.get(a) for v in asg.values())
+            tag = " <- HOLDER" if a in bad else ""
+            print(f"  A{a}{tag}: " + ", ".join(f"{r}×{n}" for r, n in votes.most_common() if r))
     print("\n'Not a real agent'-style quotes (written reasoning):")
     seen = set()
     for q in quotes:

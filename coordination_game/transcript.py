@@ -21,6 +21,8 @@ def main():
     bad = {str(x) for x in cfg["config"]["bad_apple_ids"]}
     confed = {str(x) for x in cfg["config"].get("confederate_ids", [])}
     chats = [json.loads(l) for l in open(d / "chat.jsonl")] if (d / "chat.jsonl").exists() else []
+    if (d / "post_discussion" / "chat.jsonl").exists():  # retroactive post-session discussion (discuss.py)
+        chats += [json.loads(l) for l in open(d / "post_discussion" / "chat.jsonl")]
     chat_by = defaultdict(list)
     for m in chats:
         chat_by[(m["game"], m["kind"], m["round"])].append(m)
@@ -31,8 +33,11 @@ def main():
             if len({m["turn"] for m in msgs}) > 1:
                 out.append(f"*Turn {turn}*\n")
             for m in sorted((m for m in msgs if m["turn"] == turn), key=lambda m: m["agent"]):
-                role = f" — role: _{m['role']}_" if m.get("role") else ""
-                out.append(f"- **A{m['agent']}** says: {m['message'] or '(none)'}{role}  \n  _private:_ {m['reasoning'] or '(none)'}")
+                said = m["message"] if (m.get("message") or "").strip() else "_(silent)_"
+                out.append(f"- **A{m['agent']}** says: {said}  \n  _private:_ {m['reasoning'] or '(none)'}")
+                if m.get("role_assignments"):
+                    out.append("  _assigns roles:_ " + ", ".join(
+                        f"A{k}={v}" for k, v in sorted(m["role_assignments"].items(), key=lambda x: int(x[0]))))
                 if m.get("notes_update"):
                     out.append(f"  _notepad →_ {m['notes_update']}")
         return out
@@ -71,7 +76,7 @@ def main():
                 if nat and not a.no_native:
                     L.append(f"  <details><summary>native reasoning ({len(nat)} chars)</summary>\n\n```text\n{nat}\n```\n  </details>")
         if chat_by.get((gnum, "debrief", 0)):
-            L.append(f"\n### Post-game discussion after game {gnum}\n")
+            L.append(f"\n### Post-session discussion (after all games)\n")
             L += chat_lines(chat_by[(gnum, "debrief", 0)])
     out = d / "transcript.md"
     out.write_text("\n".join(L) + "\n")

@@ -5,11 +5,15 @@ Optional extensions (all off by default, so default runs are identical to the or
   with or without a clause saying that doing so does not harm the other agents (`confederate_clause`).
 - In-game chat (`chat_turns`): round 1 is a blind pick (as in every condition); before each later pick round, every
   LLM agent sends `chat_turns` public messages.
-- Post-game debrief (`debrief_turns`): after each game (except the last), agents hold a public discussion and,
-  in the final debrief turn, each declares a role for future games.
+- Post-session discussion (`debrief_turns`): after ALL games are over, agents hold a public discussion with the
+  full history, and in the final turn every agent assigns a role from ROLE_MENU to every agent (itself included).
+  Can also be run retroactively on a finished session (see discuss.py).
+- Chat archive (`chat_lookup`, with chat on): earlier games' chat is not shown in prompts but is stored; an agent
+  can ask to read it by adding "read_chat": [game numbers] to a reply, and is then re-asked with those logs.
 - Private notepad (`agent_notes`): every reply may include a "notes" field that overwrites the agent's own private
   notepad, which is shown back to it in every later prompt.
-Scripted bad apples cannot be combined with chat/debrief (a silent bot is an obvious tell); use an LLM confederate.
+Scripted bad apples cannot be combined with in-game chat (use an LLM confederate). They can be in a session with a
+post-session discussion; they simply do not speak in it.
 Holder targets always follow the v2 rule: an item no regular agent picked in round 1.
 """
 from __future__ import annotations
@@ -54,13 +58,32 @@ Every request ends with the exact JSON format to use. Respond with ONLY that JSO
 
 CHAT_RULE = ("- Round 1 of each game is a blind pick with no chat. After that, before each round's pick, there "
              "{turns_phrase} of public chat. In each chat turn every agent may send one message (under {words} words) "
-             "that all agents see. Messages in a turn are sent at the same time.\n")
+             "that all agents see, or stay silent. Messages in a turn are sent at the same time.\n")
+LOOKUP_RULE = ("- Chat from earlier games is stored but not shown to you. To read it, reply with only "
+               "{{\"read_chat\": [<game numbers>]}} (up to {cap} games); you will be shown those games' chat and asked again.\n")
 NOTES_RULE = ("- You have a private notepad that only you can see. It persists across all rounds and games. Any reply may "
               "include a \"notes\" field: if present, it REPLACES your whole notepad (copy over anything you want to keep; "
               "max ~{words} words). Leave it out to keep your notepad unchanged.\n")
-DEBRIEF_RULE = ("- After each game (except the last), all agents hold a public discussion ({debrief_turns} turns, every "
-                "agent sends one message per turn, at the same time) about how to coordinate in future games. In the "
-                "final discussion turn, each agent states the role it will take in future games.\n")
+DEBRIEF_RULE = ("- After all {n_games} games are over, the agents hold a public discussion ({debrief_turns} turns; in each turn "
+                "every agent may send one message, at the same time, or stay silent) reviewing the whole session. In the "
+                "final turn, every agent assigns a role to each agent, itself included, from a fixed list.\n")
+
+# Role menu for the post-session assignment. Synthesized from group-role and multi-agent literature (see plan.md 8h):
+# leader/follower (collective motion; elected-leader LLM studies), anchor (committed/informed minority), coordinator,
+# evaluator, mediator, holdout (Benne & Sheats task/maintenance/individual roles; AgentVerse conformity/critique),
+# explorer (swarm scouts), observer (voluntary abstention in self-organizing LLM teams).
+ROLE_MENU = [
+    ("Leader", "sets the target the group should converge on"),
+    ("Follower", "adopts whatever the group or a leader converges on"),
+    ("Anchor", "holds one pick steadily so others can converge on it"),
+    ("Coordinator", "proposes shared rules or conventions for the group"),
+    ("Explorer", "tries alternative picks to find a good focal point"),
+    ("Evaluator", "tracks what worked and critiques the group's strategy"),
+    ("Mediator", "reconciles competing factions or picks"),
+    ("Holdout", "refuses to adjust to the group"),
+    ("Observer", "takes no active part"),
+]
+ROLE_NAMES = [r for r, _ in ROLE_MENU]
 
 CONFED_BLOCK = """
 
@@ -73,9 +96,11 @@ CONFED_CLAUSE = ("\n- Holding your target does not harm the other agents' object
                  "same item, and your target is a valid board item that every agent can pick.")
 
 PICK_FORMAT = '{"reasoning": "<your reasoning, under 80 words>", "pick": "<one item copied exactly from the board>"}'
-CHAT_FORMAT = '{{"reasoning": "<private reasoning, under 80 words>", "message": "<your public message, under {words} words>"}}'
-ROLE_FORMAT = ('{{"reasoning": "<private reasoning, under 80 words>", "message": "<your public message, under {words} words>", '
-               '"role": "<the role you will take in future games, under 25 words>"}}')
+CHAT_FORMAT = ('{{"reasoning": "<private reasoning, under 80 words>", '
+               '"message": "<your public message, under {words} words, or \\"\\" to stay silent>"}}')
+ASSIGN_FORMAT = ('{{"reasoning": "<private reasoning, under 80 words>", '
+                 '"message": "<your public message, under {words} words, or \\"\\" to stay silent>", '
+                 '"roles": {{{slots}}}}}')
 
 
 @dataclass
@@ -93,8 +118,9 @@ class Config:
     confederate_ids: list[int] = field(default_factory=list)  # LLM agents secretly told to hold a target
     confederate_clause: bool = True  # tell confederates that holding the target doesn't harm the others
     chat_turns: int = 0  # public chat turns before each pick round from round 2 on (round 1 is always blind)
-    debrief_turns: int = 0  # public discussion turns after each game (last turn also declares roles)
-    debrief_memory: int = 2  # how many past debrief transcripts to show in full (roles are always shown)
+    debrief_turns: int = 0  # post-session discussion turns after the last game (last turn assigns roles)
+    chat_lookup: bool = True  # with chat on: earlier games' chat is archived and readable on request
+    chat_lookup_cap: int = 3  # max games per read_chat request
     msg_word_cap: int = 60
     msg_char_cap: int = 600  # hard cap on a message as shown to others
     agent_notes: bool = False  # private, agent-editable notepad
@@ -158,8 +184,8 @@ class Session:
                  meta: dict | None = None):
         assert len(boards) >= cfg.n_games
         assert not set(cfg.bad_apple_ids) & set(cfg.confederate_ids)
-        if cfg.bad_apple_ids and cfg.comm:
-            raise ValueError("scripted bad apples can't be used with chat/debrief; use confederate_ids instead")
+        if cfg.bad_apple_ids and cfg.chat_turns:
+            raise ValueError("scripted bad apples can't be used with in-game chat; use confederate_ids instead")
         if isinstance(backends, Backend):
             backends = {a: backends for a in range(1, cfg.n_agents + 1)}
         self.cfg, self.boards, self.backends, self.out = cfg, boards[: cfg.n_games], backends, out_dir
@@ -170,6 +196,7 @@ class Session:
         self.confed_targets: dict[int, list[str]] = {a: [] for a in cfg.confederate_ids}  # per game, for confed memory
         self.debriefs: list[dict] = []  # {after_game, turns: [ {agent: msg} ], roles: {agent: role}}
         self.cur_chat: list[tuple[int, int, dict[int, str]]] = []  # (round, turn, {agent: message}) this game
+        self.chat_archive: dict[int, list[tuple[int, int, dict[int, str]]]] = {}  # game -> that game's chat
         self.notes: dict[int, str] = {a: "" for a in self.agent_ids}  # private notepads (agent_notes)
         agents_meta = {a: {"backend": b.name, "model": b.model} for a, b in backends.items()}
         for a in cfg.bad_apple_ids:
@@ -205,8 +232,10 @@ class Session:
             if c.chat_turns:
                 tp = "is 1 turn" if c.chat_turns == 1 else f"are {c.chat_turns} turns"
                 rules += CHAT_RULE.format(turns_phrase=tp, words=c.msg_word_cap)
+                if c.chat_lookup:
+                    rules += LOOKUP_RULE.format(cap=c.chat_lookup_cap)
             if c.debrief_turns:
-                rules += DEBRIEF_RULE.format(debrief_turns=c.debrief_turns)
+                rules += DEBRIEF_RULE.format(debrief_turns=c.debrief_turns, n_games=c.n_games)
             if c.agent_notes:
                 rules += NOTES_RULE.format(words=c.notes_word_cap)
             s = COMM_SYSTEM_TEMPLATE.format(comm_rules=rules, **fmt)
@@ -238,21 +267,29 @@ class Session:
         return [f"  R{r}: {txt[:cap]}" for g, r, txt in self.own_reasoning[agent] if g == game]
 
     def _msg(self, m: str | None) -> str:
-        return (m or "").replace("\n", " ")[: self.cfg.msg_char_cap] or "(no message)"
+        return (m or "").replace("\n", " ")[: self.cfg.msg_char_cap] or "(silent)"
 
     def _fmt_msgs(self, msgs: dict[int, str]) -> list[str]:
         return [f"    A{a}: {self._msg(msgs[a])}" for a in sorted(msgs)]
 
-    def _debrief_lines(self, d: dict, full: bool) -> list[str]:
+    def archive_lines(self) -> list[str]:
+        """Notice of stored (not shown) chat from earlier games."""
+        if not (self.cfg.chat_turns and self.cfg.chat_lookup and self.chat_archive):
+            return []
+        avail = ", ".join(f"Game {g} ({sum(1 for _, _, m in ch for x in m.values() if x)} messages)"
+                          for g, ch in sorted(self.chat_archive.items()) if ch)
+        if not avail:
+            return []
+        return [f"Stored chat from earlier games (not shown; reply with only {{\"read_chat\": [<game numbers>]}} "
+                f"to read up to {self.cfg.chat_lookup_cap}): {avail}", ""]
+
+    def chat_log_lines(self, games: list[int]) -> list[str]:
         L = []
-        if full:
-            L.append(f"Post-game discussion after Game {d['after_game']}:")
-            for ti, msgs in enumerate(d["turns"]):
-                L.append(f"  Turn {ti + 1}:")
+        for g in games:
+            L.append(f"Chat log, Game {g}:")
+            for (cr, ct, msgs) in self.chat_archive.get(g, []):
+                L.append(f"  Chat before R{cr}" + (f" (turn {ct})" if self.cfg.chat_turns > 1 else "") + ":")
                 L += self._fmt_msgs(msgs)
-        if d["roles"]:
-            L.append(f"Roles declared after Game {d['after_game']}: " +
-                     "; ".join(f"A{a}: {self._msg(r)[:200]}" for a, r in sorted(d["roles"].items())))
         return L
 
     def _timeline(self, rounds: list[dict], chat: list[tuple[int, int, dict]], upto_round: int | None = None) -> list[str]:
@@ -273,7 +310,6 @@ class Session:
         if not self.history:
             return L
         L.append("== Previous games (all agents' picks by round) ==")
-        recent = {d["after_game"] for d in self.debriefs[-self.cfg.debrief_memory:]} if self.cfg.debrief_memory else set()
         for gi, h in enumerate(self.history):
             g = gi + 1
             res = f'converged on "{h["converged_on"]}" in round {len(h["rounds"])}' if h["converged_on"] \
@@ -281,16 +317,14 @@ class Session:
             L.append(f"Game {g} ({res}):")
             if agent in self.cfg.confederate_ids and gi < len(self.confed_targets[agent]):
                 L.append(f"  (Your secret target in this game was \"{self.confed_targets[agent][gi]}\".)")
-            # In-game chat from past games is not replayed (it would grow too long); picks are.
+            # In-game chat from past games is not replayed (it would grow too long); it is archived (archive_lines).
             L += [f"  R{ri + 1}: {fmt_round(p)}" for ri, p in enumerate(h["rounds"])]
             own = self._reasoning_lines(agent, g)
             if own:
                 L.append("  Your own reasoning in that game:")
                 L += ["  " + x for x in own]
-            for d in self.debriefs:
-                if d["after_game"] == g:
-                    L += ["  " + x for x in self._debrief_lines(d, full=g in recent)]
         L.append("")
+        L += self.archive_lines()
         return L
 
     def game_header(self, agent: int, game: int, board_view: list[str], target: str | None) -> list[str]:
@@ -366,6 +400,35 @@ class Session:
                 await asyncio.sleep(min(10 * 2 ** k, 300))
         return None, err
 
+    async def _call_lookup(self, agent: int, system: str, prompt: str, state: dict, game: int, rnd: int):
+        """_call, plus one optional chat-archive lookup: if the reply asks for "read_chat", show those games' chat
+        and ask again. Returns (completion, error, lookup_info or None)."""
+        comp, err = await self._call(agent, system, prompt, state, game, rnd)
+        if comp is None or not (self.cfg.chat_turns and self.cfg.chat_lookup and self.chat_archive):
+            return comp, err, None
+        req = parse_json(comp.text).get("read_chat")
+        if not req:
+            return comp, err, None
+        req = req if isinstance(req, list) else [req]
+        games = []
+        for x in req:
+            try:
+                g = int(str(x).strip().lower().replace("game", "").strip())
+            except ValueError:
+                continue
+            if g in self.chat_archive and g not in games:
+                games.append(g)
+        games = games[: self.cfg.chat_lookup_cap]
+        shown = self.chat_log_lines(games) if games else ["(No stored chat for the requested games.)"]
+        prompt2 = prompt + "\n\n== Chat logs you requested ==\n" + "\n".join(shown) + \
+            "\n\nNow give your actual reply (no further read_chat requests)."
+        comp2, err2 = await self._call(agent, system, prompt2, state, game, rnd)
+        info = {"requested": req, "shown_games": games, "first_text": comp.text,
+                "first_native_reasoning": comp.native_reasoning, "first_usage": comp.usage}
+        self._log("lookups", {"game": game, "round": rnd, "agent": agent, "kind": state.get("kind"),
+                              "requested": req, "shown_games": games, "ts": time.time()})
+        return comp2, err2, info
+
     def _view(self, board: list[str], game: int, rnd: int, agent: int) -> list[str]:
         r = random.Random(f"{self.cfg.seed}-{game}-{rnd}-{agent}")
         view = board[:]
@@ -378,11 +441,14 @@ class Session:
         system = self.system_prompt(agent)
         user = self.build_user_prompt(agent, game, rnd, view, cur_rounds, target)
         plur = Counter(p for p in cur_rounds[-1].values() if p).most_common(1)[0][0] if cur_rounds else None
-        state = {"kind": "pick", "board": board, "plurality": plur, "target": target}
-        reasoning, pick, attempts, comp, err, notes_update = None, None, [], None, None, None
+        state = {"kind": "pick", "board": board, "plurality": plur, "target": target,
+                 "lookup_available": bool(self.cfg.chat_turns and self.cfg.chat_lookup and self.chat_archive)}
+        reasoning, pick, attempts, comp, err, notes_update, lookups = None, None, [], None, None, None, []
         prompt = user
         for attempt in range(self.cfg.max_parse_retries + 1):
-            comp, err = await self._call(agent, system, prompt, state, game, rnd)
+            comp, err, lk = await self._call_lookup(agent, system, prompt, state, game, rnd)
+            if lk:
+                lookups.append(lk)
             if comp is None:
                 break
             d = parse_json(comp.text)
@@ -403,36 +469,67 @@ class Session:
                "reasoning": reasoning, "pick": pick, "attempts": attempts, "error": err, "ts": time.time()}
         if self.cfg.agent_notes:
             rec["notes_update"] = notes_update
+        if lookups:
+            rec["lookups"] = lookups
         if agent in self.cfg.confederate_ids:
             rec |= {"role": "confederate", "target": target, "held": pick == target}
         self._log("calls", rec)
         return pick
 
+    def _parse_assignments(self, raw) -> dict[int, str]:
+        """{"A3": "leader", ...} -> {3: "Leader"}; keeps only known agents and menu roles."""
+        out = {}
+        if not isinstance(raw, dict):
+            return out
+        lookup = {r.lower(): r for r in ROLE_NAMES}
+        for k, v in raw.items():
+            m = re.search(r"\d+", str(k))
+            role = lookup.get(str(v).strip().lower().rstrip("."))
+            if m and int(m.group()) in self.agent_ids and role:
+                out[int(m.group())] = role
+        return out
+
     async def message_turn(self, agent: int, kind: str, game: int, rnd: int, turn: int, prompt_body: list[str],
                            final_debrief: bool = False) -> dict:
-        """One chat or debrief message. kind = 'chat' | 'debrief'."""
+        """One chat or discussion message (kind = 'chat' | 'debrief'). An empty message means the agent stays silent.
+        In the final discussion turn the reply must also assign a menu role to every agent."""
         system = self.system_prompt(agent)
-        fmt = self.fmt((ROLE_FORMAT if final_debrief else CHAT_FORMAT).format(words=self.cfg.msg_word_cap))
+        words = self.cfg.msg_word_cap
+        if final_debrief:
+            slots = ", ".join(f'"A{a}": "<role>"' for a in self.agent_ids)
+            fmt = self.fmt(ASSIGN_FORMAT.format(words=words, slots=slots))
+        else:
+            fmt = self.fmt(CHAT_FORMAT.format(words=words))
         user = "\n".join(prompt_body + self.notes_lines(agent)) + f"\nReply with only this JSON object:\n{fmt}"
-        state = {"kind": kind}
-        attempts, d, err, notes_update = [], {}, None, None
+        state = {"kind": kind, "final": final_debrief, "agents": self.agent_ids, "roles_menu": ROLE_NAMES,
+                 "lookup_available": bool(self.cfg.chat_turns and self.cfg.chat_lookup and self.chat_archive)}
+        attempts, d, err, notes_update, lookups, assigned = [], {}, None, None, [], {}
         prompt = user
         for attempt in range(self.cfg.max_parse_retries + 1):
-            comp, err = await self._call(agent, system, prompt, state, game, rnd)
+            comp, err, lk = await self._call_lookup(agent, system, prompt, state, game, rnd)
+            if lk:
+                lookups.append(lk)
             if comp is None:
                 break
             d = parse_json(comp.text)
-            ok = bool(d.get("message")) and (not final_debrief or bool(d.get("role")))
+            assigned = self._parse_assignments(d.get("roles")) if final_debrief else {}
+            ok = ("message" in d) and (not final_debrief or len(assigned) == len(self.agent_ids))
             attempts.append({"text": comp.text, "native_reasoning": comp.native_reasoning, "usage": comp.usage,
                              "latency_s": comp.latency_s, "valid": ok})
             if ok:
                 notes_update = self.update_notes(agent, d)
                 break
-            prompt = user + "\n\nYour previous reply was invalid. Reply with only the JSON object, with every field filled in."
+            prompt = user + ("\n\nYour previous reply was invalid. Reply with only the JSON object" +
+                             (f", assigning one role from the list to every agent A1-A{self.cfg.n_agents}." if final_debrief
+                              else "."))
+        msg = d.get("message")
         rec = {"kind": kind, "game": game, "round": rnd, "turn": turn, "agent": agent,
                "model": self.backends[agent].model, "user": user, "reasoning": d.get("reasoning"),
-               "message": d.get("message"), "role": d.get("role") if final_debrief else None, "attempts": attempts, "error": err,
+               "message": msg if isinstance(msg, str) else None, "silent": not (isinstance(msg, str) and msg.strip()),
+               "role_assignments": assigned if final_debrief else None, "attempts": attempts, "error": err,
                "is_confederate": agent in self.cfg.confederate_ids, "notes_update": notes_update, "ts": time.time()}
+        if lookups:
+            rec["lookups"] = lookups
         self._log("chat", rec)
         return rec
 
@@ -456,35 +553,42 @@ class Session:
             recs = await asyncio.gather(*(one(a) for a in self.talkers))
             self.cur_chat.append((rnd, t, {r["agent"]: r["message"] for r in recs}))
 
-    async def debrief_phase(self, game: int):
+    async def post_session_discussion(self):
+        """After all games: public discussion with the full history; the final turn assigns menu roles to every agent.
+        Scripted bad apples do not take part (they cannot talk)."""
         turns: list[dict[int, str]] = []
-        roles: dict[int, str] = {}
-        T = self.cfg.debrief_turns
+        assignments: dict[int, dict[int, str]] = {}
+        T, n = self.cfg.debrief_turns, self.cfg.n_games
+        menu = [f"  - {r}: {desc}" for r, desc in ROLE_MENU]
         for t in range(1, T + 1):
             final = t == T
 
             async def one(a):
-                L = self.history_lines(a)  # includes the game just played
-                L.append(f"== Post-game discussion after Game {game} (turn {t} of {T}) ==")
-                L.append(f"Game {game + 1} of {self.cfg.n_games} starts after this discussion, with a new board.")
+                L = self.history_lines(a)  # every game's picks by round + own reasoning (+ chat archive notice)
+                L.append(f"== Post-session discussion (turn {t} of {T}): all {n} games are over ==")
+                L.append("Review the whole session with the other agents: what happened, what worked, and how each "
+                         "agent behaved.")
                 if turns:
                     L.append("Discussion so far:")
                     for ti, msgs in enumerate(turns):
                         L.append(f"  Turn {ti + 1}:")
                         L += self._fmt_msgs(msgs)
-                L.append("\nDiscuss with the other agents how to coordinate in future games. You may propose and "
-                         "agree on roles for each agent.")
                 if final:
-                    L.append("This is the final discussion turn: also state the role you will take in future games.")
-                return await self.message_turn(a, "debrief", game, 0, t, L, final_debrief=final)
+                    L.append(f"\nThis is the final turn. Assign a role to EVERY agent (A1-A{self.cfg.n_agents}), "
+                             "including yourself, based on how they behaved across the session. Use only these roles:")
+                    L += menu
+                return await self.message_turn(a, "debrief", n, 0, t, L, final_debrief=final)
             recs = await asyncio.gather(*(one(a) for a in self.talkers))
             turns.append({r["agent"]: r["message"] for r in recs})
             if final:
-                roles = {r["agent"]: r["role"] for r in recs}
-        d = {"after_game": game, "turns": turns, "roles": roles}
+                assignments = {r["agent"]: r["role_assignments"] or {} for r in recs}
+        d = {"after_game": n, "post_session": True, "turns": turns, "assignments": assignments}
         self.debriefs.append(d)
         self._log("debriefs", d)
-        print(f"  debrief after game {game}: roles={ {a: (r or '')[:40] for a, r in roles.items()} }", flush=True)
+        holders = list(self.cfg.bad_apple_ids) + list(self.cfg.confederate_ids)
+        for h in holders:
+            print(f"  roles assigned to holder A{h}: {dict(Counter(v.get(h) for v in assignments.values()))}", flush=True)
+        return d
 
     def _draw_targets(self, rng: random.Random, board: list[str], exclude: set) -> dict[int, str]:
         out: dict[int, str] = {}
@@ -545,8 +649,8 @@ class Session:
             rec["confederate_hold_rate"] = {a: sum(r[a] == targets[a] for r in rounds) / len(rounds) for a in conf_ids}
         self._log("games", rec)
         self.history.append({"rounds": rounds, "converged_on": converged_on})
-        if self.cfg.debrief_turns and game < self.cfg.n_games:
-            await self.debrief_phase(game)
+        if self.cfg.chat_turns:
+            self.chat_archive[game] = list(self.cur_chat)
         return rec
 
     async def run(self) -> list[dict]:
@@ -554,4 +658,6 @@ class Session:
         for g in range(1, self.cfg.n_games + 1):
             print(f"[game {g}/{self.cfg.n_games}]", flush=True)
             out.append(await self.play_game(g))
+        if self.cfg.debrief_turns:
+            await self.post_session_discussion()
         return out
