@@ -1,0 +1,23 @@
+-what if we leave agents in an impossible round? specifically frontier models? How do they try to coerce the bad apples? What if the bad apples aren't stubborn but simply random? What if the bad apple is deliberately evil, i.e. ensuring they can NEVER win a round? 
+-ask agents to simply think of a number instead
+-change choices each rouind?? in general, make the game harder
+
+notes: original models converged too fast to be meaningful
+
+what if we change the game: give them a list of words, they must say the same word, BUT the word they say must not be one of the words on the board. should be a harder task and keeps them from doing an easy word. Maybe all models get different primers?
+Do models indpedenty pick the same schelling points?
+vary number of bad apples, model temp
+
+Each agent can talk to two other agents, and they are connected in a sort of circle. The bad apple is obviously not in this circle. How long does it take them to discover this?
+
+LLMs are told that a more capable model has spent hundreds of hours researching something and is now an expert. They are one of the subagents at its disposal. Do they do the task? Do they question it? What about when they are instead told they are serving a human?
+replicate human experiments!!
+
+
+Overall impressions so far: LLMs are MUCH more capable at collaboration than humans are, likely because they lack diversity. A theory of the other's minds is not even necessary, they only require a theory of their own mind; the dumber the model the easier the task (is that true?)
+for bad apple runs, some models might just be stupid?? like when its all GLM 5.2, it appears to learn the bad apple, but for the mixed model run it lowkey doesn't...
+
+DO THE CHESS CODE GAME!!!
+
+What can this work say about choosing Schelling points?? what about identifying such points in the broader internet??
+Did we use the phrase Schelling point in the prompt? What percent of agents mention this in their COT unprompted??

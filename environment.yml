@@ -10,3 +10,5 @@ dependencies:
   - pip:
       - httpx
       - pydantic
+      - adaption
+      - python-dotenv
