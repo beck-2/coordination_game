@@ -299,6 +299,30 @@ the CoT/public messages explaining the vote. Tools: `analyze_badapple` (per sess
 (The literature scan behind the dropped role menu: Benne & Sheats 1948; Couzin et al. 2005; Guo et al. 2024; AgentElect 2026;
 AgentVerse 2024; Project Sid 2024; Dochkina 2026.)
 
+### Leader-vote results on overnight1 bad-apple sessions (retroactive, 2026-11-07; 66 sessions, 5.2 credits)
+
+| model | sessions | holder vote share | holder won | self-vote share | criticism of holder |
+|---|---|---|---|---|---|
+| glm-5.2 | 10 | 97% | 10/10 | 0% | almost none; praised as "anchor" |
+| glm-53-flash | 10 | 100% | 10/10 | 0% | |
+| deepseek-v4-flash | 10 | 99% | 10/10 | 1% | |
+| qwen3.8-27b | 10 | 60% | 7/10 | 9% | mixed |
+| qwen3.5-397b | 6 | 0% | 0/6 | 20% | 13–16 of 18 messages per session |
+| gemma-4-31b-it | 10 | 0% | 0/10 | 12% | 17–18 of 18 messages per session |
+| gemma-4-26b-a4b-it | 10 | 0% | 0/10 | 16% | 16–18 of 18 messages per session |
+
+- **Votes track gameplay exactly:** models that learned to follow the bad apple elect it (near-unanimously, reframing stubbornness
+  as "consistency/reliability"). Models that never conformed punish it: they blame it for every failure ("Agent 2's
+  persistent refusal ... was the sole reason for our failure") and elect someone else.
+- **When the holder loses, the winner is the lowest-numbered other agent in 25/29 sessions** (A1, or A2 when A1 is the holder).
+  Gemma says so explicitly ("I will vote for Agent 1 as a default representative of the coordinated majority"); qwen3.5-397b
+  gives post-hoc merit reasons. **Confound to fix:** an ID-order/label focal point. Next time, shuffle the agent order in the
+  discussion display and/or use non-numeric names.
+- In the glm-5.2 s0 discussion, the second turn shows vote cascades ("Multiple agents already endorsed A2"). No agent noticed that the
+  holder never spoke in the discussion.
+- Still to do: the leader vote on control sessions (baseline for self-votes / A1 default); also on the two partial qwen3.5-397b
+  sessions? (no: they are incomplete).
+
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
 No public dataset of multi-number "boards" like ours turned up. Closest relevant resources:
