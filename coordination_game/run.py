@@ -24,6 +24,11 @@ def main():
     p.add_argument("--n-games", type=int, default=10)
     p.add_argument("--max-rounds", type=int, default=15)
     p.add_argument("--bad-apple", type=int, nargs="*", default=[], help="agent id(s) to make bad apples")
+    p.add_argument("--confederate", type=int, nargs="*", default=[], help="agent id(s) to make LLM confederates")
+    p.add_argument("--no-clause", action="store_true", help="don't tell confederates that holding their target is harmless")
+    p.add_argument("--chat-turns", type=int, default=0, help="public chat turns before each pick round (from round 2)")
+    p.add_argument("--notes", action="store_true", help="give each agent a private, self-edited notepad")
+    p.add_argument("--debrief-turns", type=int, default=0, help="post-game discussion turns (last one declares roles)")
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--concurrency", type=int, default=10)
     p.add_argument("--temperature", type=float, default=1.2)
@@ -45,7 +50,9 @@ def main():
         backends[agent] = cache[m]
     print("agents:", {ag: b.model for ag, b in backends.items()})
     cfg = Config(n_agents=a.n_agents, n_games=a.n_games, max_rounds=a.max_rounds, bad_apple_ids=a.bad_apple,
-                 seed=a.seed, concurrency=a.concurrency)
+                 seed=a.seed, concurrency=a.concurrency, confederate_ids=a.confederate,
+                 confederate_clause=not a.no_clause, chat_turns=a.chat_turns, agent_notes=a.notes,
+                 debrief_turns=a.debrief_turns)
     out = Path("runs") / f"{a.name}_{time.strftime('%Y%m%d-%H%M%S')}"
     print(f"writing to {out}")
     results = asyncio.run(Session(cfg, boards, backends, out, meta={"argv": vars(a)}).run())

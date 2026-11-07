@@ -30,10 +30,43 @@ from .game import Config, Session
 MODELS = ["glm-5.2", "qwen3.5-397b", "deepseek-v4-flash", "glm-53-flash",
           "qwen3.8-27b", "gemma-4-31b-it", "gemma-4-26b-a4b-it"]
 
+# Arm = experimental condition. "holder" is who holds the target: None, a scripted bot, or an LLM confederate.
+ARMS = {
+    "control":             dict(holder=None),
+    "badapple":            dict(holder="scripted"),
+    # LLM confederate, no communication: does a real agent hold its target, and does that change anything?
+    "confed_safe":         dict(holder="confed", confederate_clause=True),
+    "confed_bare":         dict(holder="confed", confederate_clause=False),
+    # Post-game debrief with role assignment (2 turns after each game; last turn declares roles).
+    # (No scripted-bad-apple version of the chat/debrief arms: a bot that never talks is an obvious tell.)
+    "debrief_control":     dict(holder=None, debrief_turns=2),
+    "debrief_confed_safe": dict(holder="confed", confederate_clause=True, debrief_turns=2),
+    "debrief_confed_bare": dict(holder="confed", confederate_clause=False, debrief_turns=2),
+    # In-game chat (round 1 blind; then 1 public message per agent before every later pick round).
+    "chat_control":        dict(holder=None, chat_turns=1),
+    "chat_confed_safe":    dict(holder="confed", confederate_clause=True, chat_turns=1),
+    "chat_confed_bare":    dict(holder="confed", confederate_clause=False, chat_turns=1),
+}
+COMM_ARMS = [a for a in ARMS if a not in ("control", "badapple")]
+
 PLANS = {
     # 10 bad-apple sessions per model (main arm) + 5 control sessions per model (baseline).
     "overnight1": dict(arms={"badapple": 10, "control": 5}, models=MODELS, temperature=1.0,
                        boards="data/boards_v2.json", n_games=10, max_rounds=15),
+    # Communication / confederate extensions: 1 seed of every new arm on glm-5.2 (compare with overnight1 glm-5.2).
+    "comm_pilot": dict(arms={a: 1 for a in COMM_ARMS}, models=["glm-5.2"], temperature=1.0,
+                       boards="data/boards_v2.json", n_games=10, max_rounds=15),
+    # Follow-up once the pilot looks sane: 5 seeds per arm.
+    "comm1": dict(arms={a: 5 for a in COMM_ARMS}, models=["glm-5.2"], temperature=1.0,
+                  boards="data/boards_v2.json", n_games=10, max_rounds=15),
+    # Same arms with the private agent-editable notepad on (cfg_overrides apply to every arm in the plan).
+    "comm_pilot_notes": dict(arms={a: 1 for a in COMM_ARMS}, models=["glm-5.2"], temperature=1.0,
+                             boards="data/boards_v2.json", n_games=10, max_rounds=15, cfg_overrides={"agent_notes": True}),
+    "mockcomm": dict(arms={a: 1 for a in COMM_ARMS}, models=["mock-a"], temperature=1.0,
+                     boards="data/boards_v2.json", n_games=3, max_rounds=4, backend="mock"),
+    "mocknotes": dict(arms={a: 1 for a in COMM_ARMS}, models=["mock-a"], temperature=1.0,
+                      boards="data/boards_v2.json", n_games=3, max_rounds=4, backend="mock",
+                      cfg_overrides={"agent_notes": True}),
     # Tiny plan for testing the runner with the mock backend.
     "mocktest": dict(arms={"badapple": 2, "control": 1}, models=["mock-a", "mock-b"], temperature=1.0,
                      boards="data/boards_v2.json", n_games=2, max_rounds=4, backend="mock"),
@@ -48,8 +81,10 @@ def bad_apple_id(seed: int, n_agents: int) -> int:
 def sessions(plan_name: str):
     plan = PLANS[plan_name]
     out = []
-    for arm in ["badapple", "control"]:  # bad apple first
-        for seed in range(plan["arms"].get(arm, 0)):
+    order = [a for a in ["badapple", "control"] if a in plan["arms"]] + \
+        [a for a in plan["arms"] if a not in ("badapple", "control")]  # bad apple first, then the plan's order
+    for arm in order:
+        for seed in range(plan["arms"][arm]):
             for model in plan["models"]:  # interleave models so each model gets early seeds
                 out.append((arm, model, seed))
     return out
@@ -88,16 +123,20 @@ async def run_one(plan_name, arm, model, seed, boards, log, redo_errors=False):
     if d.exists():
         shutil.rmtree(d)  # partial session: restart cleanly
     n_agents = 10
-    bad = [bad_apple_id(seed, n_agents)] if arm == "badapple" else []
+    spec = dict(ARMS[arm]) | plan.get("cfg_overrides", {})
+    holder = spec.pop("holder")
+    hid = [bad_apple_id(seed, n_agents)] if holder else []
+    bad = hid if holder == "scripted" else []
+    confed = hid if holder == "confed" else []
     kind = plan.get("backend", "adaption")
     kw = {"temperature": plan["temperature"]} if kind == "adaption" else {}
     backend = make_backend(kind, model, seed=seed, **kw)
     cfg = Config(n_agents=n_agents, n_games=plan["n_games"], max_rounds=plan["max_rounds"],
-                 bad_apple_ids=bad, seed=seed)
+                 bad_apple_ids=bad, confederate_ids=confed, seed=seed, **spec)
     meta = {"plan": plan_name, "arm": arm, "model": model, "temperature": plan["temperature"],
             "boards": plan["boards"]}
     t = time.time()
-    log(f"START {arm} {model} s{seed} bad={bad}")
+    log(f"START {arm} {model} s{seed} bad={bad}" + (f" confed={confed}" if confed else ""))
     try:
         results = await Session(cfg, boards, backend, d, meta=meta).run()
     except Exception:
@@ -171,7 +210,7 @@ def main():
     if a.dry_run:
         for s in sessions(a.plan):
             arm, model, seed = s
-            print(arm, model, f"s{seed}", f"bad=A{bad_apple_id(seed, 10)}" if arm == "badapple" else "")
+            print(arm, model, f"s{seed}", f"holder=A{bad_apple_id(seed, 10)}" if ARMS[arm]["holder"] else "")
         return
     asyncio.run(run_plan(a.plan, a.parallel, quiet=not a.verbose, redo_errors=a.redo_errors,
                          skip_models=a.skip_models))

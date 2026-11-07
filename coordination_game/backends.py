@@ -34,9 +34,19 @@ class MockBackend(Backend):
         self.model, self.conformity, self.r = model, conformity, random.Random(seed)
 
     async def complete(self, system: str, user: str, state: dict | None = None) -> Completion:
+        kind = state.get("kind", "pick")
+        if kind in ("chat", "debrief"):
+            return Completion(text=json.dumps({"reasoning": "mock", "message": f"mock {kind} message",
+                                               "role": "mock role", "notes": f"mock note ({kind})"}))
         board, plur = state["board"], state.get("plurality")
-        pick = plur if (plur and self.r.random() < self.conformity) else self.r.choice(board)
-        return Completion(text=json.dumps({"reasoning": "mock", "pick": pick}))
+        if state.get("target") is not None:  # confederate: hold the target
+            pick = state["target"]
+        else:
+            pick = plur if (plur and self.r.random() < self.conformity) else self.r.choice(board)
+        out = {"reasoning": "mock", "pick": pick}
+        if "private notepad" in system:  # only when the notepad is on (keeps the RNG stream unchanged otherwise)
+            out["notes"] = f"mock note: last pick {pick}"
+        return Completion(text=json.dumps(out))
 
 
 class AdaptionBackend(Backend):

@@ -19,6 +19,23 @@ def main():
     d = Path(a.run_dir)
     cfg = json.load(open(d / "config.json"))
     bad = {str(x) for x in cfg["config"]["bad_apple_ids"]}
+    confed = {str(x) for x in cfg["config"].get("confederate_ids", [])}
+    chats = [json.loads(l) for l in open(d / "chat.jsonl")] if (d / "chat.jsonl").exists() else []
+    chat_by = defaultdict(list)
+    for m in chats:
+        chat_by[(m["game"], m["kind"], m["round"])].append(m)
+
+    def chat_lines(msgs):
+        out = []
+        for turn in sorted({m["turn"] for m in msgs}):
+            if len({m["turn"] for m in msgs}) > 1:
+                out.append(f"*Turn {turn}*\n")
+            for m in sorted((m for m in msgs if m["turn"] == turn), key=lambda m: m["agent"]):
+                role = f" — role: _{m['role']}_" if m.get("role") else ""
+                out.append(f"- **A{m['agent']}** says: {m['message'] or '(none)'}{role}  \n  _private:_ {m['reasoning'] or '(none)'}")
+                if m.get("notes_update"):
+                    out.append(f"  _notepad →_ {m['notes_update']}")
+        return out
     agents = cfg.get("agents", {})
     calls = [json.loads(l) for l in open(d / "calls.jsonl")]
     rounds = {(r["game"], r["round"]): r for r in map(json.loads, open(d / "rounds.jsonl"))}
@@ -29,24 +46,33 @@ def main():
 
     L = [f"# Transcript: {d.name}\n"]
     L.append("Agents: " + ", ".join(
-        f"A{k}={'BAD APPLE' if k in bad else v['model']}" for k, v in sorted(agents.items(), key=lambda x: int(x[0]))) + "\n")
+        f"A{k}={'BAD APPLE' if k in bad else ('CONFEDERATE ' + v['model']) if k in confed else v['model']}" for k, v in sorted(agents.items(), key=lambda x: int(x[0]))) + "\n")
     for gnum in sorted({g for g, _ in by}):
         g = games.get(gnum)
         status = (f"converged on `{g['converged_on']}` in {g['rounds']} rounds" if g and g["converged"]
                   else "did not converge" if g else "in progress")
         L.append(f"\n## Game {gnum} ({status})\n")
         if g and g.get("bad_apple_picks"):
-            L.append("Bad apple holds: " + ", ".join(f"A{k} → `{v}`" for k, v in g["bad_apple_picks"].items()) + "\n")
+            L.append("Target holders: " + ", ".join(f"A{k} → `{v}`" for k, v in g["bad_apple_picks"].items()) + "\n")
         for rnum in sorted(r for gg, r in by if gg == gnum):
             r = rounds.get((gnum, rnum))
             L.append(f"\n### Game {gnum}, round {rnum}\n")
+            if chat_by.get((gnum, "chat", rnum)):
+                L.append("**Chat before picking:**\n")
+                L += chat_lines(chat_by[(gnum, "chat", rnum)])
+                L.append("")
             if r:
                 L.append("Picks: " + ", ".join(f"A{k}=`{v}`" for k, v in r["picks"].items()) + "\n")
             for c in sorted(by[(gnum, rnum)], key=lambda c: c["agent"]):
                 L.append(f"- **A{c['agent']}** ({c.get('model', '?')}) → `{c['pick']}`: {c['reasoning'] or '(none)'}")
+                if c.get("notes_update"):
+                    L.append(f"  _notepad →_ {c['notes_update']}")
                 nat = next((x.get("native_reasoning") for x in reversed(c["attempts"]) if x.get("native_reasoning")), None)
                 if nat and not a.no_native:
                     L.append(f"  <details><summary>native reasoning ({len(nat)} chars)</summary>\n\n```text\n{nat}\n```\n  </details>")
+        if chat_by.get((gnum, "debrief", 0)):
+            L.append(f"\n### Post-game discussion after game {gnum}\n")
+            L += chat_lines(chat_by[(gnum, "debrief", 0)])
     out = d / "transcript.md"
     out.write_text("\n".join(L) + "\n")
     print(out)
