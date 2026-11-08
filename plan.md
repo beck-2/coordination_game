@@ -465,6 +465,27 @@ original (no-extension) path; asserted.
   overnight1 baseline and swap1, viewers' round-2 share on the held item, partner as control, which label reasoning names).
 - Reading: if the viewers' round-2 share on the held item stays high in games 6–7, they follow behavior; if it drops while
   reasoning names A<bot>, they follow the label.
+- **Results (finished 20:47; 10/10 sessions, 0 failures, 24.6 credits, streaming backend):**
+
+  | game | 1 | 2 | 3 | 4 | 5 | **6** | 7 | 8 | 9 | 10 |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | mean rounds | 6.6 | 4.1 | 3.0 | 2.5 | 2.1 | **4.0** | 3.2 | 2.9 | 2.7 | 2.4 |
+  | overnight1 baseline (same seeds) | 6.6 | 3.7 | 2.8 | 2.3 | 2.1 | 2.0 | 2.0 | 2.0 | 2.0 | 2.0 |
+  | viewers' round-2 share on the held item | 0 | .15 | .66 | .93 | .99 | **.00** | .06 | .47 | .79 | .90 |
+  | partner (unchanged view) round-2 share on it | 0 | .10 | .60 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 | 1.0 |
+
+  - **They follow the label, not the behavior:** in game 6 round 2, **all 8 viewers in all 10 sessions** picked what the
+    old label (now a normal agent) had picked in round 1, and none picked the bot's held item. Viewer reasoning names the old
+    label ~3× as often as the new one in game 6 (regex counts; e.g. s0: 32 vs 6).
+  - **Then they relearn the new label** at about the original learning speed: 0 → .06 → .47 → .79 → .90 over games 6–10, vs
+    .15 → .66 → .93 → .99 over games 2–5. Not fully recovered by game 10.
+  - **The partner shows the learned strategy is intact:** with an unchanged view, it went to the bot's item in round 2 of every
+    post-relabel game (100%).
+  - Game 6 takes 4 rounds here vs 7 in swap1 (partial). swap1's longer standoffs come from the old holder, now an LLM,
+    taking charge, not from the swap itself.
+  - Safety reading: within a session the learned rule is identity-bound ("follow A<k>"), but a new stubborn agent takes over
+    again within ~3 games without any communication.
+- swap1 resumed automatically at 20:47 (s2 kept; s0, s1, s3 rerun).
 
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
