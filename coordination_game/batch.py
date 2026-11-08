@@ -230,6 +230,13 @@ def main():
     a = p.parse_args()
     if a.status:
         return status(a.plan)
+    hold = Path("runs") / a.plan / "HOLD"
+    if hold.exists() and not a.dry_run:  # lets a scheduled launch be cancelled without touching the scheduler
+        msg = f"{time.strftime('%Y-%m-%d %H:%M:%S')} HELD: {hold} exists, not running plan {a.plan} ({hold.read_text().strip()})"
+        print(msg)
+        with open(Path("runs") / a.plan / "batch.log", "a") as f:
+            f.write(msg + "\n")
+        return
     if a.dry_run:
         for s in sessions(a.plan):
             arm, model, seed = s

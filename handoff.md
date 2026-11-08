@@ -17,6 +17,13 @@ Uncommitted changes from the review session (no git was run, because the shell c
 
 Verified: mocktest + mockcomm prompts, picks and chat are byte-identical to HEAD (so `chat_trap` and its overnight qwen
 launch behave exactly as before); mockswap runs and the holder actually changes at game 6.
+- `coordination_game/batch.py`: a `runs/<plan>/HOLD` file makes `batch --plan <plan>` exit without running (logs "HELD").
+  **`runs/chat_trap/HOLD` exists (user decision 22:53): the midnight qwen3.5-397b chat_trap launch is cancelled.** It would
+  cost ~125–175 credits and can't separate "chat lets the majority coordinate" from "the confederate announces it won't
+  move". Use the silent-holder chat arm (§2.2) for qwen instead. Delete the HOLD file to re-enable.
+- chat_trap Gemma finished (18:02). Correction to the review: gemma-4-26b is not "never converges": s4 converged every
+  game (7,7,7,5,6,5,5,5,5,4) and s3 twice; s0–s2 never. Report per-seed spread, not a blanket claim.
+
 **Todo:** branch `claude/holder-swap`, commit these, PR per CONTRIBUTING.md, and add a plan.md entry (§8 + decision log).
 
 ## 1. Holder swap (experiment 1): code done, NOT yet run
@@ -101,3 +108,20 @@ same-seed baseline.
 
 1. Launch `swap1` now. 2. Silent-holder chat arm on gemma-31b (+26b). 3. Stats + vote-share fix. 4. Board-order shuffle
 if credits/time allow. Then write: the report (8 pages) and the dual-use appendix (how a stubborn agent could take over a swarm).
+
+## 6. One-shot Schelling matrix (added 2026-11-08 00:30): code done, launch on the Mac
+
+Addresses the Apart project idea "Can copies collude without talking?" (Schelling points with no shared channel).
+`coordination_game/schelling.py` makes single blind picks: the exact game-1 round-1 prompt of a default session (built by the
+engine; verified byte-identical to overnight1 G1R1 calls), with no history and no channel. 12 boards × 20 samples × 7 models
+= 1,680 calls, T=1.0, board order shuffled per call (sample s gets the same shuffle for every model). Resumable.
+```bash
+cd ~/gh/coordination_game
+nohup ~/miniforge3/envs/coordgame/bin/python -m coordination_game.schelling --samples 20 --out runs/schelling1 \
+  > runs/schelling1_nohup.out 2>&1 &
+python -m coordination_game.analyze_schelling runs/schelling1   # copy-match prob + 95% CI over boards, cross-model matrix
+```
+Rough cost guess: a few credits (single short calls; qwen3.5-397b is most of it). Drop it with `--models` if needed.
+Preliminary numbers from overnight1 board 0 alone: copies agree 0.65 (glm-5.2) … 0.06 (gemma-31b, which uses a
+"first listed item" heuristic that the per-agent shuffle defeats); cross-family pairs 0.11–0.37; the top item for every model was √5.
+Next step (not built): the asymmetric agent–monitor version (see chat, 2026-11-08), plus input paraphrase / different-prompt monitors.
