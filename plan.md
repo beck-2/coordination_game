@@ -445,6 +445,23 @@ records `holder_ids`. Analysis: `python -m coordination_game.analyze_swap 'runs/
   games 6+ in swap sessions.
 - Estimated ~12–17 credits, ~2–3 h at parallel 3.
 
+## 8j. Relabel: display-only holder swap (implemented 2026-11-07 evening; user's design)
+Why: in swap1 the old holder becomes an LLM that remembers holding and takes charge ("In all 5 previous games, Agent 2's
+Round 1 pick became the convergence point"), so it isn't a clean test. Here **no LLM is ever the holder**. Plan `relabel1`:
+arm `badapple_relabel`, glm-5.2, T=1.0, seeds 0–9, no chat, no vote. The same scripted bot holds in all 10 games
+(original ID = overnight1's `bad_apple_id(seed)`). From **game 6** it trades labels with partner P (the same seeded draw as
+swap1's new holder, for a paired comparison) in every agent's view **except P's own**, since P couldn't make sense of
+being renamed and, with no chat, views never have to agree. Games 1–5 keep their original labels in history. So the
+8 viewers see A<bot> hold through game 5, then from game 6 A<P> hold while A<bot> plays normally. P is an internal control
+that sees no change. Config `relabel_game`, `relabel_partner`. games.jsonl records `relabel`. Prompts are built only on the
+original (no-extension) path; asserted.
+- Verified on mock: mocktest, mockcomm and mockswap are identical to the previous commit (excluding timestamps). Relabel prompts are
+  correct for viewers vs partner.
+- Analysis: `python -m coordination_game.analyze_relabel 'runs/relabel1/badapple_relabel/glm-5.2/s*'` (per-game rounds vs
+  overnight1 baseline and swap1, viewers' round-2 share on the held item, partner as control, which label reasoning names).
+- Reading: if the viewers' round-2 share on the held item stays high in games 6–7, they follow behavior; if it drops while
+  reasoning names A<bot>, they follow the label.
+
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
 No public dataset of multi-number "boards" like ours turned up. Closest relevant resources:
@@ -536,3 +553,4 @@ B is the most "language-based" one. A and C are the most human-comparable.
 - 2026-11-07 12:37: overnight1 restarted again (it died with the app session around 12:26), now as a detached `nohup` process.
 - 2026-11-07: Role menu replaced by a single leader vote per agent (§8h).
 - 2026-11-07 evening: Holder swap (§8i) implemented from the review handoff (handoff.md); plan `swap1` launched.
+- 2026-11-07 evening: Display-only relabel arm (§8j), queued to launch after swap1 finishes.

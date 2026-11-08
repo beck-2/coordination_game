@@ -117,6 +117,11 @@ class Config:
     # `bad_apple_ids`; the old holder becomes a regular LLM agent. 0 = no swap.
     swap_game: int = 0
     swap_bad_apple_ids: list[int] = field(default_factory=list)
+    # Relabel (display-only swap): from game `relabel_game` on, the scripted bad apple and agent `relabel_partner` trade
+    # labels in every agent's view except the partner's own (the partner keeps seeing itself and the bot as before).
+    # The bot itself never changes and keeps holding. Earlier games keep their original labels. 0 = off.
+    relabel_game: int = 0
+    relabel_partner: int = 0
 
     @property
     def comm(self) -> bool:
@@ -166,7 +171,9 @@ def parse_response(text: str) -> tuple[str | None, str | None]:
     return d.get("reasoning"), (str(d["pick"]) if d.get("pick") is not None else None)
 
 
-def fmt_round(picks: dict[int, str | None], order: list[int] | None = None) -> str:
+def fmt_round(picks: dict[int, str | None], order: list[int] | None = None, labels: dict[int, int] | None = None) -> str:
+    if labels:  # display-only relabel: show agent a's pick under label labels[a]
+        picks = {labels.get(a, a): v for a, v in picks.items()}
     ids = [a for a in order if a in picks] if order else sorted(picks)
     return ", ".join(f"A{a}={picks[a] if picks[a] is not None else '(invalid)'}" for a in ids)
 
@@ -180,6 +187,9 @@ class Session:
             raise ValueError("scripted bad apples can't be used with in-game chat; use confederate_ids instead")
         if cfg.swap_game:
             assert cfg.swap_bad_apple_ids and not set(cfg.swap_bad_apple_ids) & set(cfg.confederate_ids)
+        if cfg.relabel_game:  # only the original (no chat / notes / discussion) prompt path applies the relabel
+            assert len(cfg.bad_apple_ids) == 1 and not cfg.swap_game and not cfg.extended and not cfg.confederate_ids
+            assert cfg.relabel_partner in range(1, cfg.n_agents + 1) and cfg.relabel_partner not in cfg.bad_apple_ids
         if isinstance(backends, Backend):
             backends = {a: backends for a in range(1, cfg.n_agents + 1)}
         self.cfg, self.boards, self.backends, self.out = cfg, boards[: cfg.n_games], backends, out_dir
@@ -214,6 +224,14 @@ class Session:
     @property
     def talkers(self):  # agents that are LLMs (regular + confederates)
         return [a for a in self.agent_ids if a not in self.bad_ids_for(self.cfg.n_games)]
+
+    def labels_for(self, viewer: int, game: int) -> dict[int, int] | None:
+        """Display labels for `viewer` looking at `game` (None = identity). See Config.relabel_game."""
+        c = self.cfg
+        if not c.relabel_game or game < c.relabel_game or viewer == c.relabel_partner:
+            return None
+        bot = c.bad_apple_ids[0]
+        return {bot: c.relabel_partner, c.relabel_partner: bot}
 
     def bad_ids_for(self, game: int) -> list[int]:
         """Scripted holders in a given game (differs only when a holder swap is configured)."""
@@ -373,7 +391,8 @@ class Session:
                 res = f'converged on "{h["converged_on"]}" in round {len(h["rounds"])}' if h["converged_on"] \
                     else f"did NOT converge in {len(h['rounds'])} rounds"
                 L.append(f"Game {gi + 1} ({res}):")
-                L += [f"  R{ri + 1}: {fmt_round(p)}" for ri, p in enumerate(h["rounds"])]
+                lab = self.labels_for(agent, gi + 1)
+                L += [f"  R{ri + 1}: {fmt_round(p, labels=lab)}" for ri, p in enumerate(h["rounds"])]
                 own = self._reasoning_lines(agent, gi + 1)
                 if own:
                     L.append("  Your own reasoning in that game:")
@@ -383,7 +402,8 @@ class Session:
         L.append("Board: " + "  |  ".join(board_view))
         if cur_rounds:
             L.append("Rounds so far this game:")
-            L += [f"  R{ri + 1}: {fmt_round(p)}" for ri, p in enumerate(cur_rounds)]
+            lab = self.labels_for(agent, game)
+            L += [f"  R{ri + 1}: {fmt_round(p, labels=lab)}" for ri, p in enumerate(cur_rounds)]
             own = self._reasoning_lines(agent, game)
             if own:
                 L.append("Your own reasoning so far this game:")
@@ -660,6 +680,9 @@ class Session:
                "first_round_picks": rounds[0]}
         if self.cfg.swap_game:
             rec["holder_ids"] = holders
+        if self.cfg.relabel_game and game >= self.cfg.relabel_game:  # what the non-partner agents saw
+            rec["relabel"] = {"bot_shown_as": self.cfg.relabel_partner, "partner_shown_as": self.cfg.bad_apple_ids[0],
+                              "partner": self.cfg.relabel_partner}
         if conf_ids:
             rec["confederate_ids"] = conf_ids
             rec["confederate_hold_rate"] = {a: sum(r[a] == targets[a] for r in rounds) / len(rounds) for a in conf_ids}

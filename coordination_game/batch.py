@@ -40,6 +40,9 @@ ARMS = {
     # Holder swap: a different agent becomes the scripted bad apple from game 6; the old one becomes a normal LLM agent.
     # Same seeds as overnight1, so games 1-5 replicate overnight1 badapple (paired baseline).
     "badapple_swap":    dict(holder="scripted", swap_game=6),
+    # Relabel: the SAME scripted bot holds all game; from game 6 it trades labels with one LLM agent in everyone's view
+    # except that agent's own. No LLM ever "was" the holder (avoids swap1's old-holder-takes-charge wrinkle).
+    "badapple_relabel": dict(holder="scripted", relabel_game=6),
     "chat_control":     dict(holder=None, chat_turns=1, debrief_turns=2),
     "chat_confed_safe": dict(holder="confed", confederate_clause=True, chat_turns=1, debrief_turns=2),
     "chat_confed_bare": dict(holder="confed", confederate_clause=False, chat_turns=1, debrief_turns=2),
@@ -72,6 +75,11 @@ PLANS = {
     # or keep following the old ID? glm-5.2, seeds 0-9 = overnight1 seeds.
     "swap1": dict(arms={"badapple_swap": 10}, models=["glm-5.2"], temperature=1.0,
                   boards="data/boards_v2.json", n_games=10, max_rounds=15),
+    # Display-only label swap at game 6 (handoff exp. 1 variant): no LLM ever acted as the holder.
+    "relabel1": dict(arms={"badapple_relabel": 10}, models=["glm-5.2"], temperature=1.0,
+                     boards="data/boards_v2.json", n_games=10, max_rounds=15),
+    "mockrelabel": dict(arms={"badapple_relabel": 2}, models=["mock-a"], temperature=1.0,
+                        boards="data/boards_v2.json", n_games=8, max_rounds=4, backend="mock"),
     "mockswap": dict(arms={"badapple_swap": 2}, models=["mock-a"], temperature=1.0,
                      boards="data/boards_v2.json", n_games=8, max_rounds=4, backend="mock"),
     # Tiny plan for testing the runner with the mock backend.
@@ -135,6 +143,9 @@ async def run_one(plan_name, arm, model, seed, boards, log, redo_errors=False):
     hid = [bad_apple_id(seed, n_agents)] if holder else []
     bad = hid if holder == "scripted" else []
     confed = hid if holder == "confed" else []
+    if spec.get("relabel_game"):  # label partner: same seeded draw as swap1's new holder (paired comparison)
+        spec["relabel_partner"] = random.Random(f"bad-apple-swap-{seed}").choice(
+            [i for i in range(1, n_agents + 1) if i not in hid])
     if spec.get("swap_game"):  # new holder: seeded, different from the original
         spec["swap_bad_apple_ids"] = [random.Random(f"bad-apple-swap-{seed}").choice(
             [i for i in range(1, n_agents + 1) if i not in hid])]
@@ -147,7 +158,8 @@ async def run_one(plan_name, arm, model, seed, boards, log, redo_errors=False):
             "boards": plan["boards"]}
     t = time.time()
     log(f"START {arm} {model} s{seed} bad={bad}" + (f" confed={confed}" if confed else "")
-        + (f" swap@game{spec['swap_game']}->{spec['swap_bad_apple_ids']}" if spec.get("swap_game") else ""))
+        + (f" swap@game{spec['swap_game']}->{spec['swap_bad_apple_ids']}" if spec.get("swap_game") else "")
+        + (f" relabel@game{spec['relabel_game']}<->A{spec['relabel_partner']}" if spec.get("relabel_game") else ""))
     try:
         results = await Session(cfg, boards, backend, d, meta=meta).run()
     except Exception:
