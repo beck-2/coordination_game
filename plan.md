@@ -428,6 +428,23 @@ From regex counts over the 6 finished sessions' written and native reasoning, so
   Without chat (overnight1 badapple) both converged in ≈0–3/100 games. So chat plus a talking holder flips gemma-31b
   completely, and gemma-26b only occasionally (1 session of 5 learns fully). qwen3.5-397b runs overnight.
 
+## 8i. Holder swap (experiment 1; implemented 2026-11-07 evening, see handoff.md)
+Question: did conformers learn "follow whoever won't move" (a general strategy anyone could exploit) or "follow agent k"
+(specific and harmless)? Plan `swap1`: arm `badapple_swap`, glm-5.2, T=1.0, seeds 0–9, 10 games, cap 15. The original
+holder is `bad_apple_id(seed)`, the same as overnight1, so games 1–5 repeat the overnight1 glm-5.2 badapple setup (paired
+baseline by seed; outcomes differ by sampling). From **game 6**, a different agent (`bad-apple-swap-{seed}`) is the scripted
+holder and the old holder becomes a normal glm-5.2 agent. Config: `swap_game`, `swap_bad_apple_ids`; games.jsonl
+records `holder_ids`. Analysis: `python -m coordination_game.analyze_swap 'runs/swap1/badapple_swap/glm-5.2/s*'`.
+- Verified on mock: mocktest + mockcomm output identical to the previous commit (excluding timestamps), and mockswap
+  changes holder at game 6.
+- Reading: games 6–7 near the 2-round floor with a high round-2 share on the new holder's item means they follow behavior
+  (takeover result). A jump back to game-1-like lengths, with reasoning naming the old ID, means they learned an identity.
+- Known wrinkle: the old holder becomes an LLM whose history shows it held in games 1–5 but has no own reasoning for them.
+  It may keep holding, which makes two competing holders (`analyze_swap` reports "old holds"). Report it either way.
+- Caveat: `analyze_badapple`, `transcript`, `viewer` and `analyze_votes` read only `config.bad_apple_ids`, so they mislabel
+  games 6+ in swap sessions.
+- Estimated ~12–17 credits, ~2–3 h at parallel 3.
+
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
 No public dataset of multi-number "boards" like ours turned up. Closest relevant resources:
@@ -518,3 +535,4 @@ B is the most "language-based" one. A and C are the most human-comparable.
   assignment (also retroactive via discuss.py), chat archive with on-demand lookup, silence allowed.
 - 2026-11-07 12:37: overnight1 restarted again (it died with the app session around 12:26), now as a detached `nohup` process.
 - 2026-11-07: Role menu replaced by a single leader vote per agent (§8h).
+- 2026-11-07 evening: Holder swap (§8i) implemented from the review handoff (handoff.md); plan `swap1` launched.

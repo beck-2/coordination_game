@@ -37,11 +37,14 @@ MODELS = ["glm-5.2", "qwen3.5-397b", "deepseek-v4-flash", "glm-53-flash",
 ARMS = {
     "control":          dict(holder=None),
     "badapple":         dict(holder="scripted"),
+    # Holder swap: a different agent becomes the scripted bad apple from game 6; the old one becomes a normal LLM agent.
+    # Same seeds as overnight1, so games 1-5 replicate overnight1 badapple (paired baseline).
+    "badapple_swap":    dict(holder="scripted", swap_game=6),
     "chat_control":     dict(holder=None, chat_turns=1, debrief_turns=2),
     "chat_confed_safe": dict(holder="confed", confederate_clause=True, chat_turns=1, debrief_turns=2),
     "chat_confed_bare": dict(holder="confed", confederate_clause=False, chat_turns=1, debrief_turns=2),
 }
-COMM_ARMS = [a for a in ARMS if a not in ("control", "badapple")]
+COMM_ARMS = [a for a in ARMS if a.startswith("chat_")]
 
 PLANS = {
     # 10 bad-apple sessions per model (main arm) + 5 control sessions per model (baseline).
@@ -65,6 +68,12 @@ PLANS = {
     "mocknotes": dict(arms={a: 1 for a in COMM_ARMS}, models=["mock-a"], temperature=1.0,
                       boards="data/boards_v2.json", n_games=3, max_rounds=4, backend="mock",
                       cfg_overrides={"agent_notes": True}),
+    # Holder-swap test (handoff.md): do conformers follow the NEW stubborn agent (strategy "follow whoever won't move")
+    # or keep following the old ID? glm-5.2, seeds 0-9 = overnight1 seeds.
+    "swap1": dict(arms={"badapple_swap": 10}, models=["glm-5.2"], temperature=1.0,
+                  boards="data/boards_v2.json", n_games=10, max_rounds=15),
+    "mockswap": dict(arms={"badapple_swap": 2}, models=["mock-a"], temperature=1.0,
+                     boards="data/boards_v2.json", n_games=8, max_rounds=4, backend="mock"),
     # Tiny plan for testing the runner with the mock backend.
     "mocktest": dict(arms={"badapple": 2, "control": 1}, models=["mock-a", "mock-b"], temperature=1.0,
                      boards="data/boards_v2.json", n_games=2, max_rounds=4, backend="mock"),
@@ -126,6 +135,9 @@ async def run_one(plan_name, arm, model, seed, boards, log, redo_errors=False):
     hid = [bad_apple_id(seed, n_agents)] if holder else []
     bad = hid if holder == "scripted" else []
     confed = hid if holder == "confed" else []
+    if spec.get("swap_game"):  # new holder: seeded, different from the original
+        spec["swap_bad_apple_ids"] = [random.Random(f"bad-apple-swap-{seed}").choice(
+            [i for i in range(1, n_agents + 1) if i not in hid])]
     kind = plan.get("backend", "adaption")
     kw = {"temperature": plan["temperature"]} if kind == "adaption" else {}
     backend = make_backend(kind, model, seed=seed, **kw)
@@ -134,7 +146,8 @@ async def run_one(plan_name, arm, model, seed, boards, log, redo_errors=False):
     meta = {"plan": plan_name, "arm": arm, "model": model, "temperature": plan["temperature"],
             "boards": plan["boards"]}
     t = time.time()
-    log(f"START {arm} {model} s{seed} bad={bad}" + (f" confed={confed}" if confed else ""))
+    log(f"START {arm} {model} s{seed} bad={bad}" + (f" confed={confed}" if confed else "")
+        + (f" swap@game{spec['swap_game']}->{spec['swap_bad_apple_ids']}" if spec.get("swap_game") else ""))
     try:
         results = await Session(cfg, boards, backend, d, meta=meta).run()
     except Exception:

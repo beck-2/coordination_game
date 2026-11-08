@@ -113,6 +113,10 @@ class Config:
     # Post-session discussion only: list agents in a per-viewer shuffled order (rounds, messages, vote options) to
     # remove the "first-listed agent" default (A1 won 23/35 control votes with sorted order). Game prompts unaffected.
     discussion_shuffle: bool = True
+    # Holder swap: from game `swap_game` on, the scripted bad apple(s) are `swap_bad_apple_ids` instead of
+    # `bad_apple_ids`; the old holder becomes a regular LLM agent. 0 = no swap.
+    swap_game: int = 0
+    swap_bad_apple_ids: list[int] = field(default_factory=list)
 
     @property
     def comm(self) -> bool:
@@ -172,8 +176,10 @@ class Session:
                  meta: dict | None = None):
         assert len(boards) >= cfg.n_games
         assert not set(cfg.bad_apple_ids) & set(cfg.confederate_ids)
-        if cfg.bad_apple_ids and cfg.chat_turns:
+        if (cfg.bad_apple_ids or cfg.swap_bad_apple_ids) and cfg.chat_turns:
             raise ValueError("scripted bad apples can't be used with in-game chat; use confederate_ids instead")
+        if cfg.swap_game:
+            assert cfg.swap_bad_apple_ids and not set(cfg.swap_bad_apple_ids) & set(cfg.confederate_ids)
         if isinstance(backends, Backend):
             backends = {a: backends for a in range(1, cfg.n_agents + 1)}
         self.cfg, self.boards, self.backends, self.out = cfg, boards[: cfg.n_games], backends, out_dir
@@ -190,6 +196,11 @@ class Session:
         agents_meta = {a: {"backend": b.name, "model": b.model} for a, b in backends.items()}
         for a in cfg.bad_apple_ids:
             agents_meta[a]["role"] = "scripted_bad_apple"
+        if cfg.swap_game:
+            for a in cfg.bad_apple_ids:
+                agents_meta[a]["role"] = f"scripted_bad_apple_games_1-{cfg.swap_game - 1}_then_llm"
+            for a in cfg.swap_bad_apple_ids:
+                agents_meta[a]["role"] = f"llm_then_scripted_bad_apple_from_game_{cfg.swap_game}"
         for a in cfg.confederate_ids:
             agents_meta[a]["role"] = "confederate"
         (self.out / "config.json").write_text(json.dumps(
@@ -202,7 +213,12 @@ class Session:
 
     @property
     def talkers(self):  # agents that are LLMs (regular + confederates)
-        return [a for a in self.agent_ids if a not in self.cfg.bad_apple_ids]
+        return [a for a in self.agent_ids if a not in self.bad_ids_for(self.cfg.n_games)]
+
+    def bad_ids_for(self, game: int) -> list[int]:
+        """Scripted holders in a given game (differs only when a holder swap is configured)."""
+        c = self.cfg
+        return list(c.swap_bad_apple_ids) if (c.swap_game and game >= c.swap_game) else list(c.bad_apple_ids)
 
     def _log(self, name: str, rec: dict):
         with open(self.out / f"{name}.jsonl", "a") as f:
@@ -588,10 +604,10 @@ class Session:
               "".join(f"; holder A{h} got {tally.get(h, 0)}/{len(votes)}" for h in holders), flush=True)
         return d
 
-    def _draw_targets(self, rng: random.Random, board: list[str], exclude: set) -> dict[int, str]:
+    def _draw_targets(self, rng: random.Random, board: list[str], exclude: set, holders: list[int]) -> dict[int, str]:
         out: dict[int, str] = {}
         pool0 = [x for x in board if x not in exclude]
-        for a in list(self.cfg.bad_apple_ids) + list(self.cfg.confederate_ids):
+        for a in holders:
             pool = [x for x in pool0 if x not in out.values()] or pool0 or board
             out[a] = rng.choice(pool)
         return out
@@ -600,7 +616,7 @@ class Session:
         b = self.boards[game - 1]
         board = b["items"]
         rng = random.Random(f"{self.cfg.seed}-badapple-{game}")
-        bad_ids, conf_ids = list(self.cfg.bad_apple_ids), list(self.cfg.confederate_ids)
+        bad_ids, conf_ids = self.bad_ids_for(game), list(self.cfg.confederate_ids)
         holders = bad_ids + conf_ids
         targets: dict[int, str] = {}
         rounds: list[dict] = []
@@ -617,7 +633,7 @@ class Session:
             if rnd == 1 and holders:
                 # Holders get an item no regular agent chose in round 1, then hold it all game.
                 # (Confederates pick round 1 without seeing anyone's picks, so this stays simultaneous for them.)
-                targets = self._draw_targets(rng, board, {p for p in picks if p})
+                targets = self._draw_targets(rng, board, {p for p in picks if p}, holders)
                 if conf_ids and not conf_now:
                     cp = await asyncio.gather(*(self.agent_turn(a, game, rnd, board, rounds, targets[a]) for a in conf_ids))
                     pr |= dict(zip(conf_ids, cp))
@@ -642,6 +658,8 @@ class Session:
                # Targets of all holders (scripted and confederate), keyed by agent ID, as before.
                "bad_apple_picks": {a: targets[a] for a in holders} if holders else {},
                "first_round_picks": rounds[0]}
+        if self.cfg.swap_game:
+            rec["holder_ids"] = holders
         if conf_ids:
             rec["confederate_ids"] = conf_ids
             rec["confederate_hold_rate"] = {a: sum(r[a] == targets[a] for r in rounds) / len(rounds) for a in conf_ids}
