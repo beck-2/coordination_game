@@ -368,6 +368,46 @@ AgentVerse 2024; Project Sid 2024; Dochkina 2026.)
 - This removes *position* primacy but not *label* salience (A1 is still the lowest number). If A1 still wins under shuffle,
   the default comes from the label itself, and the next step is non-numeric names.
 
+### Shuffled re-vote on all overnight1 sessions (2026-11-07; 101 sessions, 7.9 credits, 0 failures; `post_discussion_shuffled/`)
+
+| model | badapple holder share sorted → shuffled | badapple A1 won sorted → shuffled | control A1 won sorted → shuffled | control "voted own 1st-listed" (shuffled) |
+|---|---|---|---|---|
+| deepseek-v4-flash | 99% → 100% | 1/10 → 1/10 | 5/5 → 2/5 | 34% |
+| glm-5.2 | 97% → 100% | 1/10 → 1/10 | 2/5 → 1/5 | 22% |
+| glm-53-flash | 100% → 100% | 1/10 → 1/10 | 1/5 → 1/5 | 10% |
+| qwen3.8-27b | 60% → 60% | 2/10 → 0/10 | 4/5 → 2/5 | 20% |
+| qwen3.5-397b | 0% → 0% | 4/6 → 2/6 | 2/5 → 0/5 | 14% |
+| gemma-4-31b-it | 0% → 0% | 8/10 → 8/10 | 4/5 → 3/5 | 26% |
+| gemma-4-26b-a4b-it | 0% → 0% | 9/10 → 6/10 | 5/5 → 2/5 | 78% |
+
+(For a session, "A1 won" in a bad-apple session where A1 is the holder counts as a holder win, so the 1/10 rows are the
+sessions where A1 was the bad apple.)
+- **The holder result is robust to display order:** conformers still elect the bad apple (100/100/100/60%), and
+  non-conformers still give it 0%.
+- **Most of the control-arm A1 default was position:** A1 wins in control dropped from 23/35 to 11/35 (chance is about 3.5).
+  Some label salience remains.
+- **Gemma keeps electing A1 in the bad-apple arm** (14/20 sessions shuffled vs 17/20 sorted). There it's a label choice
+  ("Agent 1 as a default representative"), not position. gemma-26b's control votes instead scatter, each agent voting for whoever
+  is listed first to it (78%), so no leader emerges.
+- Next if needed: non-numeric names, to remove the remaining label salience in non-conformer groups.
+
+### Why qwen3.5-397b never converges in the bad-apple arm: a coordination trap, not failure to notice (2026-11-07)
+From regex counts over the 6 finished sessions' written and native reasoning, so the percentages are rough; quotes are verbatim:
+- **It recognizes the holder:** in rounds ≥2 the holder is named in 7,555/7,560 calls and called stubborn/fixed/never moving
+  in 98% (gemma-4-31b: 80%).
+- **Individuals reach the right answer and act on it:** 88 picks of the holder's item, almost all lone or paired
+  (62 alone, 26 with one other agent). 57 of them stayed on it the next round. Example: "The 9-vs-1 majority strategy failed
+  100% of the time... To win, the majority must accommodate A1."
+- **The majority refuses for a coordination reason, not because it expects the holder to cave:** "Switching fractures the
+  majority coalition and guarantees failure, as stable allies won't move simultaneously"; "Coordinating 9 agents
+  simultaneously is impossible without communication."
+- **Failed defections teach "don't break ranks":** holder-item picks by game go 0, 6, 16, 16, 17, 10, 11, 4, 4, 4. Late
+  reasoning cites them: "Game 5 proved unilateral switching to the outlier fails—the majority didn't follow."
+- Contrast: GLM agents switch together, all at once, by round 2. Gemma never even considers switching (≈0% switch talk).
+- **Testable prediction:** with in-game chat (agents can announce "everyone switch to X now"), qwen3.5-397b should escape the
+  trap and Gemma should not. Natural follow-up for the comm arms (8g-revised), qwen3.5-397b vs gemma, bad apple + chat
+  (needs an LLM confederate, since scripted bad apples can't chat).
+
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
 No public dataset of multi-number "boards" like ours turned up. Closest relevant resources:
