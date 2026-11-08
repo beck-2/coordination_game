@@ -1,0 +1,330 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Coordination Results</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/plotly.js/2.27.0/plotly.min.js"></script>
+<style>
+:root {
+  --bg: #fafaf8; --panel: #ffffff; --ink: #1d1d1b; --muted: #6b6b66; --line: #e3e2dc;
+  --accent: #2f5fd0; --holder: #f4a261; --holder-ink: #6b3300; --cons: #b9e4c9; --cons-ink: #11552b;
+  --sel: #2f5fd0; --chip: #f0efe9;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #161615; --panel: #1f1f1d; --ink: #ecebe6; --muted: #9b9a93; --line: #34332f;
+    --accent: #7ea2ff; --holder: #9a5418; --holder-ink: #ffe2c7; --cons: #1f5134; --cons-ink: #c9f2d8;
+    --sel: #7ea2ff; --chip: #2a2a27;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.45 -apple-system, "Segoe UI", Inter, sans-serif; }
+header { display: flex; gap: 16px; align-items: center; padding: 10px 16px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 5; }
+header h1 { font-size: 15px; margin: 0 12px 0 0; }
+.tab { border: 0; background: none; color: var(--muted); font: inherit; padding: 6px 10px; border-radius: 6px; cursor: pointer; }
+.tab.on { background: var(--chip); color: var(--ink); font-weight: 600; }
+.spacer { flex: 1; }
+button.small, select, input[type=text] { font: inherit; font-size: 13px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; }
+button.small { cursor: pointer; }
+main { padding: 16px; }
+.hidden { display: none !important; }
+.row { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
+.row label { color: var(--muted); font-size: 13px; display: flex; gap: 6px; align-items: center; }
+.plots { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 16px; }
+.card { min-width: 0; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 12px; }
+.card h3 { margin: 0 0 6px; font-size: 14px; }
+.note { color: var(--muted); font-size: 12px; }
+#tx { display: grid; grid-template-columns: 290px minmax(0, 1fr); gap: 16px; }
+@media (max-width: 860px) { #tx { grid-template-columns: 1fr; } .plots { grid-template-columns: 1fr; } }
+#slist { max-height: calc(100vh - 230px); overflow: auto; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.sitem { padding: 6px 10px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 13px; }
+.sitem:hover { background: var(--chip); }
+.sitem.on { background: var(--chip); border-left: 3px solid var(--sel); }
+.sitem .meta { color: var(--muted); font-size: 12px; }
+.games { display: flex; gap: 6px; flex-wrap: wrap; }
+.gbtn { border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 6px; padding: 4px 8px; cursor: pointer; font: inherit; font-size: 12px; }
+.gbtn.on { border-color: var(--sel); box-shadow: inset 0 0 0 1px var(--sel); }
+.gbtn .r { color: var(--muted); }
+.gbtn.fail .r { color: #c0392b; }
+.gridwrap { overflow-x: auto; }
+table.grid { border-collapse: collapse; font-size: 12px; width: 100%; }
+table.grid th, table.grid td { border: 1px solid var(--line); padding: 3px 5px; text-align: center; white-space: nowrap; }
+table.grid th { background: var(--chip); font-weight: 600; cursor: pointer; }
+table.grid th.holder { background: var(--holder); color: var(--holder-ink); }
+table.grid td { cursor: pointer; }
+table.grid td.h { background: var(--holder); color: var(--holder-ink); }
+table.grid td.c { background: var(--cons); color: var(--cons-ink); }
+table.grid td.sel, table.grid th.sel { outline: 2px solid var(--sel); outline-offset: -2px; }
+.legend span { display: inline-block; padding: 1px 6px; border-radius: 4px; margin-right: 6px; font-size: 12px; }
+.entry { border-top: 1px solid var(--line); padding: 8px 0; }
+.entry .hd { font-size: 13px; }
+.entry .hd b { font-weight: 600; }
+.pick { font-family: ui-monospace, Menlo, monospace; background: var(--chip); padding: 0 5px; border-radius: 4px; }
+.pick.h { background: var(--holder); color: var(--holder-ink); }
+details { margin-top: 4px; }
+details summary { color: var(--muted); cursor: pointer; font-size: 12px; }
+pre { white-space: pre-wrap; word-break: break-word; font: 12px/1.45 ui-monospace, Menlo, monospace; background: var(--chip); padding: 8px; border-radius: 6px; max-height: 420px; overflow: auto; margin: 4px 0; }
+.tag { font-size: 11px; padding: 0 5px; border-radius: 4px; background: var(--chip); color: var(--muted); }
+.tag.h { background: var(--holder); color: var(--holder-ink); }
+.vote { font-weight: 600; color: var(--accent); }
+h2 { font-size: 15px; margin: 16px 0 8px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Coordination game results</h1>
+  <button class="tab on" data-tab="learn">Learning curves</button>
+  <button class="tab" data-tab="tx">Transcripts</button>
+  <span class="spacer"></span>
+  <button class="small" id="reload" title="Re-read runs/ from disk">Reload data</button>
+</header>
+
+<main>
+<section id="learn">
+  <div class="row">
+    <label>Experiment <select id="lexp"></select></label>
+    <label>Metric <select id="lmetric">
+      <option value="rounds">Rounds to converge (15 = failed)</option>
+      <option value="converged">Share of games converged</option>
+      <option value="holder_r2">Share of agents on the bad apple's item in round 2</option>
+    </select></label>
+    <label><input type="checkbox" id="lerr" checked> ± 1 SE</label>
+  </div>
+  <div class="plots" id="lplots"></div>
+  <p class="note">Each point is the mean over sessions of that model at that game index (1–10 within a session). Only finished, single-model sessions are included.
+  Click a legend entry to hide a model, double-click to show only that model.</p>
+</section>
+
+<section id="tx" class="hidden">
+  <div>
+    <div class="row">
+      <select id="fexp"></select>
+      <select id="farm"></select>
+      <select id="fmodel"></select>
+    </div>
+    <div id="slist"></div>
+  </div>
+  <div id="sview"><p class="note">Pick a session on the left.</p></div>
+</section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const api = async (p, q = {}) => {
+  const r = await fetch(p + "?" + new URLSearchParams(q));
+  const j = await r.json();
+  if (j && j.error) throw new Error(j.error);
+  return j;
+};
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const PALETTE = ["#2f5fd0", "#e07a1f", "#2a9d8f", "#c0392b", "#8e44ad", "#7f8c2a", "#d35d9b", "#5d6d7e"];
+
+let SESS = [], LEARN = null, CUR = null;
+let state = { path: null, game: 1, round: "", agent: "", disc: null, native: true, prompts: false };
+
+// ---------------- tabs + hash ----------------
+function showTab(t) {
+  document.querySelectorAll(".tab").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  $("#learn").classList.toggle("hidden", t !== "learn");
+  $("#tx").classList.toggle("hidden", t !== "tx");
+  if (t === "learn") drawLearning();
+}
+document.querySelectorAll(".tab").forEach(b => b.onclick = () => { showTab(b.dataset.tab); writeHash(); });
+function writeHash() {
+  const t = $("#learn").classList.contains("hidden") ? "tx" : "learn";
+  const h = new URLSearchParams({ t, ...(state.path ? { s: state.path, g: state.game, r: state.round, a: state.agent } : {}) });
+  history.replaceState(null, "", "#" + h);
+}
+function readHash() {
+  const h = new URLSearchParams(location.hash.slice(1));
+  if (h.get("s")) Object.assign(state, { path: h.get("s"), game: +h.get("g") || 1, round: h.get("r") || "", agent: h.get("a") || "" });
+  return h.get("t") || "learn";
+}
+
+// ---------------- learning curves ----------------
+function drawLearning() {
+  if (!LEARN) return;
+  const exp = $("#lexp").value, metric = $("#lmetric").value, err = $("#lerr").checked;
+  const groups = LEARN.groups.filter(g => g.experiment === exp && g.model !== "mixed");
+  const arms = [...new Set(groups.map(g => g.arm))].sort();
+  const models = [...new Set(groups.map(g => g.model))].sort();
+  const box = $("#lplots"); box.innerHTML = "";
+  const ink = css("--ink"), line = css("--line"), muted = css("--muted");
+  const ylab = { rounds: "mean rounds", converged: "share converged", holder_r2: "share on holder item, R2" }[metric];
+  const pending = [];
+  for (const arm of arms) {
+    const gs = groups.filter(g => g.arm === arm && (metric !== "holder_r2" || g.holder_r2.some(v => v != null)));
+    if (!gs.length) continue;
+    const card = document.createElement("div"); card.className = "card";
+    const n = gs.map(g => `${g.model} ${g.n_sessions}`).join(", ");
+    card.innerHTML = `<h3>${esc(arm)}</h3><div class="note">sessions: ${esc(n)}</div><div class="lp" style="height:420px;width:100%"></div>`;
+    box.appendChild(card);
+    pending.push([card, gs]);
+  }
+  // Plot only after every card is in the grid, so each plot gets its final column width.
+  for (const [card, gs] of pending) {
+    const traces = gs.map(g => ({
+      x: g.games, y: g[metric], name: g.model, mode: "lines+markers", type: "scatter",
+      line: { color: PALETTE[models.indexOf(g.model) % PALETTE.length], width: 2 }, marker: { size: 6 },
+      error_y: err ? { type: "data", array: g[metric + "_se"], visible: true, thickness: 1, width: 3 } : undefined,
+      hovertemplate: `${g.model}<br>game %{x}: %{y:.2f}<extra></extra>`,
+    }));
+    Plotly.newPlot(card.querySelector(".lp"), traces, {
+      margin: { l: 50, r: 10, t: 10, b: 50 }, paper_bgcolor: "rgba(0,0,0,0)", plot_bgcolor: "rgba(0,0,0,0)",
+      font: { color: ink, size: 12 }, legend: { orientation: "h", y: -0.22, yanchor: "top" },
+      xaxis: { title: "game", dtick: 1, gridcolor: line, zeroline: false, color: muted },
+      yaxis: { title: ylab, gridcolor: line, zeroline: false, color: muted,
+               range: metric === "rounds" ? [0, 15.5] : [-0.03, 1.03] },
+    }, { displaylogo: false, responsive: true });
+  }
+  if (!box.children.length) box.innerHTML = `<p class="note">No finished single-model sessions for this experiment and metric.</p>`;
+}
+["#lexp", "#lmetric", "#lerr"].forEach(s => $(s).onchange = drawLearning);
+
+// ---------------- session list ----------------
+function fillSelect(sel, vals, label, keep) {
+  const cur = keep ?? sel.value;
+  sel.innerHTML = `<option value="">${label}: all</option>` + vals.map(v => `<option>${esc(v)}</option>`).join("");
+  if (vals.includes(cur)) sel.value = cur;
+}
+function refreshFilters() {
+  const e = $("#fexp").value, a = $("#farm").value;
+  fillSelect($("#farm"), [...new Set(SESS.filter(s => !e || s.experiment === e).map(s => s.arm))].sort(), "arm");
+  fillSelect($("#fmodel"), [...new Set(SESS.filter(s => (!e || s.experiment === e) && (!$("#farm").value || s.arm === $("#farm").value)).map(s => s.model))].sort(), "model");
+  drawList();
+}
+function drawList() {
+  const e = $("#fexp").value, a = $("#farm").value, m = $("#fmodel").value;
+  const ss = SESS.filter(s => (!e || s.experiment === e) && (!a || s.arm === a) && (!m || s.model === m));
+  $("#slist").innerHTML = ss.map(s => `<div class="sitem ${s.path === state.path ? "on" : ""}" data-p="${esc(s.path)}">
+      <div>${esc(s.experiment === s.path ? s.path : s.path.split("/").slice(1).join(" / ") || s.path)}</div>
+      <div class="meta">${esc(s.arm)} · ${esc(s.models.join(", "))} · ${s.games_done}/${s.n_games} games${s.holders.length ? " · holder A" + s.holders.join(",A") : ""}${s.discussions.length ? " · vote" : ""}</div>
+    </div>`).join("") || `<p class="note" style="padding:8px">No sessions.</p>`;
+  document.querySelector(".sitem.on")?.scrollIntoView({ block: "nearest" });
+  document.querySelectorAll(".sitem").forEach(el => el.onclick = () => { state = { ...state, path: el.dataset.p, game: 1, round: "", agent: "", disc: null }; loadSession(); });
+}
+["#fexp", "#farm", "#fmodel"].forEach(s => $(s).onchange = refreshFilters);
+
+// ---------------- one session ----------------
+async function loadSession() {
+  drawList(); writeHash();
+  $("#sview").innerHTML = `<p class="note">Loading…</p>`;
+  try { CUR = await api("/api/session", { path: state.path }); }
+  catch (e) { $("#sview").innerHTML = `<p class="note">${esc(e.message)}</p>`; return; }
+  const discs = Object.keys(CUR.discussions);
+  if (!state.disc || !discs.includes(state.disc)) state.disc = discs.includes("post_discussion_shuffled") ? "post_discussion_shuffled" : discs[0] || null;
+  drawSession();
+}
+function holderItem(g) { const v = Object.values(g?.bad_apple_picks || {}); return v.length ? v[0] : null; }
+function drawSession() {
+  const c = CUR, cfg = c.config || {}, n = cfg.n_agents || 10, H = new Set(c.holders.map(String));
+  const models = [...new Set(Object.values(c.agents || {}).filter(a => a.role !== "scripted_bad_apple").map(a => a.model))];
+  const games = c.games, g = games.find(x => x.game === state.game) || null;
+  const rounds = c.rounds[String(state.game)] || [];
+  const hi = holderItem(g), cons = g?.converged ? g.converged_on : null;
+  const agents = [...Array(n)].map((_, i) => String(i + 1));
+  let h = `<div class="card">
+    <div><b>${esc(c.path)}</b></div>
+    <div class="note">${esc(models.join(", "))} · ${n} agents · ${cfg.n_games} games${c.holders.length ? ` · bad apple / holder: <span class="tag h">A${c.holders.join(", A")}</span>` : " · no bad apple"}</div>
+    <h2>Games</h2><div class="games">` +
+    games.map(x => `<button class="gbtn ${x.game === state.game ? "on" : ""} ${x.converged ? "" : "fail"}" data-g="${x.game}">G${x.game} <span class="r">${x.rounds}${x.converged ? "" : "✗"}</span></button>`).join("") +
+    (c.chat.length ? "" : "") + `</div>
+    <h2>Game ${state.game}: picks by round ${g ? (g.converged ? `· converged on <span class="pick">${esc(g.converged_on)}</span> in ${g.rounds}` : `· did not converge`) : "· in progress"}</h2>
+    <div class="legend note">${hi != null ? `<span style="background:var(--holder);color:var(--holder-ink)">bad apple's item ${esc(hi)}</span>` : ""}${cons ? `<span style="background:var(--cons);color:var(--cons-ink)">final consensus</span>` : ""} Click a cell for that agent's reasoning, a column header for one agent, a round label for one round.</div>
+    <div class="gridwrap"><table class="grid"><tr><th data-r="" data-a="" class="${!state.round && !state.agent ? "sel" : ""}">all</th>` +
+    agents.map(a => `<th data-a="${a}" class="${H.has(a) ? "holder" : ""} ${state.agent === a && !state.round ? "sel" : ""}">A${a}</th>`).join("") + `</tr>` +
+    rounds.map(r => `<tr><th data-r="${r.round}" class="${state.round == r.round && !state.agent ? "sel" : ""}">R${r.round}</th>` + agents.map(a => {
+      const p = r.picks[a]; const cls = [p === hi && hi != null ? "h" : (cons && p === cons ? "c" : ""), state.round == r.round && state.agent === a ? "sel" : ""].join(" ");
+      return `<td class="${cls}" data-r="${r.round}" data-a="${a}" title="A${a} R${r.round}">${esc(p ?? "(invalid)")}</td>`;
+    }).join("") + `</tr>`).join("") + `</table></div></div>`;
+
+  h += `<div class="card" style="margin-top:12px">
+    <div class="row" style="margin-bottom:4px">
+      <b>Reasoning</b>
+      <label>Game <select id="sg"><option value="">all</option>${games.map(x => `<option ${x.game === state.game ? "selected" : ""}>${x.game}</option>`).join("")}</select></label>
+      <label>Round <select id="sr"><option value="">all</option>${[...Array(cfg.max_rounds || 15)].map((_, i) => `<option ${state.round == i + 1 ? "selected" : ""}>${i + 1}</option>`).join("")}</select></label>
+      <label>Agent <select id="sa"><option value="">all</option>${agents.map(a => `<option value="${a}" ${state.agent === a ? "selected" : ""}>A${a}${H.has(a) ? " (holder)" : ""}</option>`).join("")}</select></label>
+      <label><input type="checkbox" id="snat" ${state.native ? "checked" : ""}> native reasoning</label>
+      <label><input type="checkbox" id="sprm" ${state.prompts ? "checked" : ""}> prompts</label>
+    </div>
+    <div id="entries" class="note">Loading…</div></div>`;
+
+  const discs = Object.keys(c.discussions);
+  if (discs.length) {
+    h += `<div class="card" style="margin-top:12px"><div class="row" style="margin-bottom:4px"><b>Post-session discussion</b>
+      <select id="sdisc">${discs.map(d => `<option ${d === state.disc ? "selected" : ""}>${esc(d)}</option>`).join("")}</select></div><div id="disc"></div></div>`;
+  }
+  $("#sview").innerHTML = h;
+  document.querySelectorAll(".gbtn").forEach(b => b.onclick = () => { state.game = +b.dataset.g; state.round = ""; drawSession(); });
+  document.querySelectorAll("table.grid [data-a], table.grid [data-r]").forEach(el => el.onclick = () => {
+    state.round = el.dataset.r ?? ""; state.agent = el.dataset.a ?? ""; drawSession();
+  });
+  $("#sg").onchange = e => { state.game = +e.target.value || state.game; state.gameAll = !e.target.value; loadEntries(); };
+  $("#sr").onchange = e => { state.round = e.target.value; drawSession(); };
+  $("#sa").onchange = e => { state.agent = e.target.value; drawSession(); };
+  $("#snat").onchange = e => { state.native = e.target.checked; loadEntries(); };
+  $("#sprm").onchange = e => { state.prompts = e.target.checked; loadEntries(); };
+  if ($("#sdisc")) { $("#sdisc").onchange = e => { state.disc = e.target.value; drawDisc(); }; drawDisc(); }
+  state.gameAll = false;
+  loadEntries(); writeHash();
+}
+async function loadEntries() {
+  const c = CUR, H = new Set(c.holders.map(String));
+  const q = { path: state.path, round: state.round, agent: state.agent, prompts: state.prompts ? "1" : "0" };
+  if (!state.gameAll) q.game = state.game;
+  $("#entries").innerHTML = "Loading…";
+  let rows; try { rows = await api("/api/calls", q); } catch (e) { $("#entries").textContent = e.message; return; }
+  const items = Object.fromEntries(c.games.map(g => [g.game, holderItem(g)]));
+  $("#entries").innerHTML = rows.length ? rows.map(r => `<div class="entry">
+    <div class="hd"><b>G${r.game} R${r.round} · A${r.agent}</b> <span class="tag ${H.has(String(r.agent)) ? "h" : ""}">${esc(H.has(String(r.agent)) ? "holder" : r.model)}</span>
+      → <span class="pick ${r.pick != null && r.pick === items[r.game] ? "h" : ""}">${esc(r.pick ?? "(invalid)")}</span>
+      ${r.n_attempts > 1 ? `<span class="tag">${r.n_attempts} attempts</span>` : ""}${r.error ? `<span class="tag">error</span>` : ""}</div>
+    <div>${esc(r.reasoning || (H.has(String(r.agent)) && !r.reasoning ? "(scripted: no reasoning)" : "(none)"))}</div>
+    ${state.native && r.native ? `<details><summary>native reasoning (${r.native.length} chars)</summary><pre>${esc(r.native)}</pre></details>` : ""}
+    ${state.prompts && r.user ? `<details><summary>prompt</summary><pre>${esc(r.system)}\n\n---\n\n${esc(r.user)}</pre></details>` : ""}
+  </div>`).join("") + (rows.length >= 2000 ? `<p class="note">Showing the first 2000; narrow the filters.</p>` : "")
+  : `<p class="note">No entries for this filter.</p>`;
+}
+function drawDisc() {
+  const D = CUR.discussions[state.disc]; if (!D) return;
+  const H = new Set(CUR.holders.map(String));
+  const turns = [...new Set(D.messages.map(m => m.turn))].sort((a, b) => a - b);
+  let h = "";
+  if (D.tally) h += `<div class="note">Leader vote: ${Object.entries(D.tally).map(([a, n]) => `<span class="tag ${H.has(a) ? "h" : ""}">A${a} × ${n}</span>`).join(" ")}
+    ${D.display_order ? " · shuffled display order per agent" : " · sorted display order"}</div>`;
+  for (const t of turns) {
+    h += `<h2>Turn ${t}</h2>`;
+    for (const m of D.messages.filter(m => m.turn === t && (!state.agent || String(m.agent) === state.agent)).sort((a, b) => a.agent - b.agent)) {
+      h += `<div class="entry"><div class="hd"><b>A${m.agent}</b> <span class="tag">${esc(m.model)}</span>
+        ${m.leader_vote != null ? ` votes <span class="vote">A${m.leader_vote}</span>${H.has(String(m.leader_vote)) ? ` <span class="tag h">holder</span>` : ""}` : ""}</div>
+        <div>${m.silent ? "<i>(silent)</i>" : esc(m.message)}</div>
+        <details><summary>private reasoning</summary><pre>${esc(m.reasoning || "(none)")}</pre>
+        ${state.native && m.native ? `<pre>${esc(m.native)}</pre>` : ""}</details></div>`;
+    }
+  }
+  $("#disc").innerHTML = h;
+}
+
+// ---------------- boot ----------------
+async function boot() {
+  [SESS, LEARN] = await Promise.all([api("/api/sessions"), api("/api/learning")]);
+  const exps = [...new Set(SESS.map(s => s.experiment))].sort();
+  const lexps = [...new Set(LEARN.groups.map(g => g.experiment))].sort();
+  $("#lexp").innerHTML = lexps.map(e => `<option>${esc(e)}</option>`).join("");
+  if (lexps.includes("overnight1")) $("#lexp").value = "overnight1";
+  fillSelect($("#fexp"), exps, "experiment", state.path ? state.path.split("/")[0] : (exps.includes("overnight1") ? "overnight1" : ""));
+  refreshFilters();
+  const tab = readHash();
+  showTab(tab);
+  if (state.path) loadSession();
+}
+$("#reload").onclick = async () => { await api("/api/reload"); await boot(); };
+readHash();
+boot().catch(e => { document.querySelector("main").innerHTML = `<p class="note">Failed to load: ${esc(e.message)}</p>`; });
+addEventListener("hashchange", () => { const prev = state.path; const t = readHash(); showTab(t); if (state.path && state.path !== prev) loadSession(); else if (state.path && CUR) drawSession(); });
+matchMedia("(prefers-color-scheme: dark)").addEventListener("change", drawLearning);
+</script>
+</body>
+</html>

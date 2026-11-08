@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "results-viewer",
+      "runtimeExecutable": "/Users/beckpeterson/miniforge3/envs/coordgame/bin/python",
+      "runtimeArgs": ["-m", "coordination_game.viewer", "--port", "8765"],
+      "port": 8765
+    }
+  ]
+}
