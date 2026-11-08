@@ -444,6 +444,10 @@ records `holder_ids`. Analysis: `python -m coordination_game.analyze_swap 'runs/
 - Caveat: `analyze_badapple`, `transcript`, `viewer` and `analyze_votes` read only `config.bad_apple_ids`, so they mislabel
   games 6+ in swap sessions.
 - Estimated ~12–17 credits, ~2–3 h at parallel 3.
+- **19:10 restart:** s1 stalled ~40 min on one glm-5.2 call that hit the gateway's ~300 s 504 on non-streaming requests
+  (tip from the poker session). `AdaptionBackend` now streams by default (same model parameters; only the transport differs; tested on real
+  calls). swap1 was stopped and restarted. s2 (finished, non-streaming) is kept; s0, s1, s3 rerun from scratch. All later runs
+  (relabel1, the 00:00 qwen chat_trap run) use streaming.
 
 ## 8j. Relabel: display-only holder swap (implemented 2026-11-07 evening; user's design)
 Why: in swap1 the old holder becomes an LLM that remembers holding and takes charge ("In all 5 previous games, Agent 2's

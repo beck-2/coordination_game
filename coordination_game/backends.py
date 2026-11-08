@@ -57,12 +57,16 @@ class MockBackend(Backend):
 
 
 class AdaptionBackend(Backend):
+    """Adaption Responses API. Streams by default: the gateway returns 504 on NON-streaming requests that run past
+    ~300 s (long reasoning traces at low throughput), which then retried forever (swap1 s1, 2026-11-07). With streaming,
+    httpx's read timeout applies per chunk, so 300 s of silence means a dead connection and is retried by Session._call.
+    Same model parameters either way; only the transport differs."""
     name = "adaption"
 
-    def __init__(self, model: str, temperature: float | None = 1.2, max_output_tokens: int = 16000):
+    def __init__(self, model: str, temperature: float | None = 1.2, max_output_tokens: int = 16000, stream: bool = True):
         from adaption import AsyncAdaption
-        self.client = AsyncAdaption(max_retries=4, timeout=900)
-        self.model, self.temperature, self.max_output_tokens = model, temperature, max_output_tokens
+        self.client = AsyncAdaption(max_retries=4, timeout=300 if stream else 900)
+        self.model, self.temperature, self.max_output_tokens, self.stream = model, temperature, max_output_tokens, stream
 
     async def complete(self, system: str, user: str, state: dict | None = None) -> Completion:
         t = time.time()
@@ -70,12 +74,22 @@ class AdaptionBackend(Backend):
                   max_output_tokens=self.max_output_tokens)
         if self.temperature is not None:
             kw["temperature"] = self.temperature
-        r = await self.client.responses.create(**kw)
+        if self.stream:
+            r = None
+            async for ev in await self.client.responses.create(**kw, stream=True):
+                if ev.type in ("response.completed", "response.incomplete"):
+                    r = ev.response
+                elif ev.type in ("response.failed", "error"):
+                    raise RuntimeError(f"stream {ev.type}: {getattr(ev.response, 'error', None) or ev}"[:500])
+            if r is None:
+                raise RuntimeError("stream ended without a final response")
+        else:
+            r = await self.client.responses.create(**kw)
         reasoning = []
         for item in r.output:
             if item.type == "reasoning":
                 for s in (item.summary or []):
-                    reasoning.append(str(s.get("text", s)))
+                    reasoning.append(str(s.get("text", s)) if isinstance(s, dict) else getattr(s, "text", str(s)))
                 for c in (item.content or []):
                     reasoning.append(getattr(c, "text", None) or str(c))
         return Completion(text=r.output_text or "",
