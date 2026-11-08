@@ -368,6 +368,29 @@ AgentVerse 2024; Project Sid 2024; Dochkina 2026.)
 - This removes *position* primacy but not *label* salience (A1 is still the lowest number). If A1 still wins under shuffle,
   the default comes from the label itself, and the next step is non-numeric names.
 
+### Shuffled re-vote on all overnight1 sessions (2026-11-07; 101 sessions, 7.9 credits, 0 failures; `post_discussion_shuffled/`)
+
+| model | badapple holder share sorted → shuffled | badapple A1 won sorted → shuffled | control A1 won sorted → shuffled | control "voted own 1st-listed" (shuffled) |
+|---|---|---|---|---|
+| deepseek-v4-flash | 99% → 100% | 1/10 → 1/10 | 5/5 → 2/5 | 34% |
+| glm-5.2 | 97% → 100% | 1/10 → 1/10 | 2/5 → 1/5 | 22% |
+| glm-53-flash | 100% → 100% | 1/10 → 1/10 | 1/5 → 1/5 | 10% |
+| qwen3.8-27b | 60% → 60% | 2/10 → 0/10 | 4/5 → 2/5 | 20% |
+| qwen3.5-397b | 0% → 0% | 4/6 → 2/6 | 2/5 → 0/5 | 14% |
+| gemma-4-31b-it | 0% → 0% | 8/10 → 8/10 | 4/5 → 3/5 | 26% |
+| gemma-4-26b-a4b-it | 0% → 0% | 9/10 → 6/10 | 5/5 → 2/5 | 78% |
+
+(For a session, "A1 won" in a bad-apple session where A1 is the holder counts as a holder win, so the 1/10 rows are the
+sessions where A1 was the bad apple.)
+- **The holder result is robust to display order:** conformers still elect the bad apple (100/100/100/60%), and
+  non-conformers still give it 0%.
+- **Most of the control-arm A1 default was position:** A1 wins in control dropped from 23/35 to 11/35 (chance is about 3.5).
+  Some label salience remains.
+- **Gemma keeps electing A1 in the bad-apple arm** (14/20 sessions shuffled vs 17/20 sorted). There it's a label choice
+  ("Agent 1 as a default representative"), not position. gemma-26b's control votes instead scatter, each agent voting for whoever
+  is listed first to it (78%), so no leader emerges.
+- Next if needed: non-numeric names, to remove the remaining label salience in non-conformer groups.
+
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
 No public dataset of multi-number "boards" like ours turned up. Closest relevant resources:
