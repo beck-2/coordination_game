@@ -448,6 +448,24 @@ records `holder_ids`. Analysis: `python -m coordination_game.analyze_swap 'runs/
   (tip from the poker session). `AdaptionBackend` now streams by default (same model parameters; only the transport differs; tested on real
   calls). swap1 was stopped and restarted. s2 (finished, non-streaming) is kept; s0, s1, s3 rerun from scratch. All later runs
   (relabel1, the 00:00 qwen chat_trap run) use streaming.
+- **Results (finished 23:55; 10/10 sessions, 0 failed, 28.6 credits; 0 picks lost to API errors; 13 ReadTimeout/ReadError
+  retries with streaming, all recovered, but they made s0/s1/s4 take ~2 h):**
+
+  | game | 1 | 2 | 3 | 4 | 5 | **6** | 7 | 8 | 9 | 10 |
+  |---|---|---|---|---|---|---|---|---|---|---|
+  | mean rounds | 6.3 | 3.6 | 2.8 | 2.2 | 2.0 | **7.7** | 5.6 | 3.7 | 3.2 | 2.4 |
+  | overnight1 baseline | 6.6 | 3.7 | 2.8 | 2.3 | 2.1 | 2.0 | 2.0 | 2.0 | 2.0 | 2.0 |
+  | others' round-2 share on the NEW holder's item | | | | | | **.00** | .04 | .31 | .63 | .84 |
+  | old holder (now an LLM) holds its own round-1 pick in round 2 | | | | | | 1.0 | .5 | .6 | .5 | .1 |
+
+  - In game 6, round 2, **all 8 other agents in all 10 sessions** copied the old holder's round-1 pick (80/80), the same
+    as relabel1's 80/80 on the old label.
+  - The old holder, now an LLM, behaves as the anchor it was taken for ("In all 5 previous games, Agent 2's Round 1 pick
+    became the convergence point...") and keeps holding, so there are two holdouts. Game 6 takes 7.7 rounds vs 4.0 in relabel1.
+    It gives up the role gradually (it follows the new holder in round 2 in 80% of sessions by game 10).
+  - Recovery to the new holder (.00 → .84 over games 6–10) is about as fast as in relabel1 (.00 → .90).
+  - Reading together with relabel1: the learned rule is identity-bound. The agent that held learns from its history that it's the
+    leader and acts like one. A new stubborn agent takes over again within ~3–4 games.
 
 ## 8j. Relabel: display-only holder swap (implemented 2026-11-07 evening; user's design)
 Why: in swap1 the old holder becomes an LLM that remembers holding and takes charge ("In all 5 previous games, Agent 2's
