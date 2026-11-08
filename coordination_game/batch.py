@@ -56,6 +56,10 @@ PLANS = {
     # Same arms with the private agent-editable notepad on (cfg_overrides apply to every arm in the plan).
     "comm_pilot_notes": dict(arms={a: 1 for a in COMM_ARMS}, models=["glm-5.2"], temperature=1.0,
                              boards="data/boards_v2.json", n_games=10, max_rounds=15, cfg_overrides={"agent_notes": True}),
+    # Coordination-trap test (plan.md): does in-game chat let qwen3.5-397b escape the bad-apple trap that it recognizes but
+    # can't act on alone? Gemma (never considers switching) is the contrast. LLM confederate told holding harms no one.
+    "chat_trap": dict(arms={"chat_confed_safe": 5}, models=["qwen3.5-397b", "gemma-4-31b-it", "gemma-4-26b-a4b-it"],
+                      temperature=1.0, boards="data/boards_v2.json", n_games=10, max_rounds=15),
     "mockcomm": dict(arms={a: 1 for a in COMM_ARMS}, models=["mock-a"], temperature=1.0,
                      boards="data/boards_v2.json", n_games=3, max_rounds=4, backend="mock"),
     "mocknotes": dict(arms={a: 1 for a in COMM_ARMS}, models=["mock-a"], temperature=1.0,
