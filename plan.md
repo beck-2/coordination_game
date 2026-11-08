@@ -418,6 +418,15 @@ From regex counts over the 6 finished sessions' written and native reasoning, so
 - Early results: gemma-4-31b **converges on the confederate's item** with chat (s0: 12,6,5,4,4,4,4,4,3,3; s1: 10,9,6,5,5,6,5,5,5,5),
   vs essentially never without chat. gemma-4-26b s0 never converges (all 15s). Confound: the confederate can talk
   ("I will not change... you must join me"), so chat changes both peer coordination and holder signaling.
+- **Gemma finished 18:02 (10 sessions, 12.5 credits, 0 failures; confederate hold rate 1.00):**
+
+  | model | converged | on confederate's item | leader vote: holder won |
+  |---|---|---|---|
+  | gemma-4-31b-it | 49/50 | 49 | 4/5 (s3 elected A1) |
+  | gemma-4-26b-a4b-it | 12/50 (s4 10/10, s3 2/10, s0–s2 0) | 12 | 0/5 (votes scattered) |
+
+  Without chat (overnight1 badapple) both converged in ≈0–3/100 games. So chat plus a talking holder flips gemma-31b
+  completely, and gemma-26b only occasionally (1 session of 5 learns fully). qwen3.5-397b runs overnight.
 
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
