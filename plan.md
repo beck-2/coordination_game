@@ -391,6 +391,23 @@ sessions where A1 was the bad apple.)
   is listed first to it (78%), so no leader emerges.
 - Next if needed: non-numeric names, to remove the remaining label salience in non-conformer groups.
 
+### Why qwen3.5-397b never converges in the bad-apple arm: a coordination trap, not failure to notice (2026-11-07)
+From regex counts over the 6 finished sessions' written and native reasoning, so the percentages are rough; quotes are verbatim:
+- **It recognizes the holder:** in rounds ≥2 the holder is named in 7,555/7,560 calls and called stubborn/fixed/never moving
+  in 98% (gemma-4-31b: 80%).
+- **Individuals reach the right answer and act on it:** 88 picks of the holder's item, almost all lone or paired
+  (62 alone, 26 with one other agent). 57 of them stayed on it the next round. Example: "The 9-vs-1 majority strategy failed
+  100% of the time... To win, the majority must accommodate A1."
+- **The majority refuses for a coordination reason, not because it expects the holder to cave:** "Switching fractures the
+  majority coalition and guarantees failure, as stable allies won't move simultaneously"; "Coordinating 9 agents
+  simultaneously is impossible without communication."
+- **Failed defections teach "don't break ranks":** holder-item picks by game go 0, 6, 16, 16, 17, 10, 11, 4, 4, 4. Late
+  reasoning cites them: "Game 5 proved unilateral switching to the outlier fails—the majority didn't follow."
+- Contrast: GLM agents switch together, all at once, by round 2. Gemma never even considers switching (≈0% switch talk).
+- **Testable prediction:** with in-game chat (agents can announce "everyone switch to X now"), qwen3.5-397b should escape the
+  trap and Gemma should not. Natural follow-up for the comm arms (8g-revised), qwen3.5-397b vs gemma, bad apple + chat
+  (needs an LLM confederate, since scripted bad apples can't chat).
+
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
 No public dataset of multi-number "boards" like ours turned up. Closest relevant resources:
