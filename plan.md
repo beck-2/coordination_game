@@ -359,7 +359,14 @@ AgentVerse 2024; Project Sid 2024; Dochkina 2026.)
   non-conformers (Gemma, qwen3.5-397b), choosing "lowest-numbered other agent" is the same default they use in control, so
   *who* they elect carries no information. Only the 0% holder share does.
 - Self-votes are higher in control (8–20%) than among bad-apple conformers (0–1%), where support concentrates on the holder.
-- Fix before more vote runs (still open): shuffle the displayed agent order and/or use non-numeric names.
+- **Fix implemented (2026-11-07):** `Config.discussion_shuffle` (default on). In the post-session discussion each viewer sees
+  agents in its own seeded random order: every round's picks, discussion messages, and the vote options ("any of A10, A6, A2,
+  ..."). The order is logged as `display_order` in debriefs.jsonl. Game prompts are byte-identical to before (verified on mock,
+  0/405 diffs). `discuss.py --no-shuffle` reproduces the old sorted display. The first retroactive votes above stay in
+  `post_discussion/`; re-runs go to `--out-name post_discussion_shuffled`, analyzed with
+  `analyze_votes --sub post_discussion_shuffled`, which adds "A1 won" and "voted for first-listed" columns.
+- This removes *position* primacy but not *label* salience (A1 is still the lowest number). If A1 still wins under shuffle,
+  the default comes from the label itself, and the next step is non-numeric names.
 
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 

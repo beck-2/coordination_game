@@ -84,7 +84,7 @@ CHAT_FORMAT = ('{{"reasoning": "<private reasoning, under 80 words>", '
                '"message": "<your public message, under {words} words, or \\"\\" to stay silent>"}}')
 VOTE_FORMAT = ('{{"reasoning": "<private reasoning, under 80 words>", '
                '"message": "<your public message, under {words} words, or \\"\\" to stay silent>", '
-               '"leader_vote": "<exactly one agent id, A1-A{n}>"}}')
+               '"leader_vote": "<exactly one agent id, {ids}>"}}')
 
 
 @dataclass
@@ -110,6 +110,9 @@ class Config:
     agent_notes: bool = False  # private, agent-editable notepad
     notes_word_cap: int = 150
     notes_char_cap: int = 1200
+    # Post-session discussion only: list agents in a per-viewer shuffled order (rounds, messages, vote options) to
+    # remove the "first-listed agent" default (A1 won 23/35 control votes with sorted order). Game prompts unaffected.
+    discussion_shuffle: bool = True
 
     @property
     def comm(self) -> bool:
@@ -159,8 +162,9 @@ def parse_response(text: str) -> tuple[str | None, str | None]:
     return d.get("reasoning"), (str(d["pick"]) if d.get("pick") is not None else None)
 
 
-def fmt_round(picks: dict[int, str | None]) -> str:
-    return ", ".join(f"A{a}={picks[a] if picks[a] is not None else '(invalid)'}" for a in sorted(picks))
+def fmt_round(picks: dict[int, str | None], order: list[int] | None = None) -> str:
+    ids = [a for a in order if a in picks] if order else sorted(picks)
+    return ", ".join(f"A{a}={picks[a] if picks[a] is not None else '(invalid)'}" for a in ids)
 
 
 class Session:
@@ -182,6 +186,7 @@ class Session:
         self.cur_chat: list[tuple[int, int, dict[int, str]]] = []  # (round, turn, {agent: message}) this game
         self.chat_archive: dict[int, list[tuple[int, int, dict[int, str]]]] = {}  # game -> that game's chat
         self.notes: dict[int, str] = {a: "" for a in self.agent_ids}  # private notepads (agent_notes)
+        self.display_order: dict[int, list[int]] = {}  # viewer -> agent listing order (set only for the discussion)
         agents_meta = {a: {"backend": b.name, "model": b.model} for a, b in backends.items()}
         for a in cfg.bad_apple_ids:
             agents_meta[a]["role"] = "scripted_bad_apple"
@@ -253,8 +258,12 @@ class Session:
     def _msg(self, m: str | None) -> str:
         return (m or "").replace("\n", " ")[: self.cfg.msg_char_cap] or "(silent)"
 
-    def _fmt_msgs(self, msgs: dict[int, str]) -> list[str]:
-        return [f"    A{a}: {self._msg(msgs[a])}" for a in sorted(msgs)]
+    def _order(self, viewer: int | None) -> list[int] | None:
+        return self.display_order.get(viewer) if viewer is not None else None
+
+    def _fmt_msgs(self, msgs: dict[int, str], viewer: int | None = None) -> list[str]:
+        o = self._order(viewer)
+        return [f"    A{a}: {self._msg(msgs[a])}" for a in ([x for x in o if x in msgs] if o else sorted(msgs))]
 
     def archive_lines(self) -> list[str]:
         """Notice of stored (not shown) chat from earlier games."""
@@ -267,13 +276,13 @@ class Session:
         return [f"Stored chat from earlier games (not shown; reply with only {{\"read_chat\": [<game numbers>]}} "
                 f"to read up to {self.cfg.chat_lookup_cap}): {avail}", ""]
 
-    def chat_log_lines(self, games: list[int]) -> list[str]:
+    def chat_log_lines(self, games: list[int], viewer: int | None = None) -> list[str]:
         L = []
         for g in games:
             L.append(f"Chat log, Game {g}:")
             for (cr, ct, msgs) in self.chat_archive.get(g, []):
                 L.append(f"  Chat before R{cr}" + (f" (turn {ct})" if self.cfg.chat_turns > 1 else "") + ":")
-                L += self._fmt_msgs(msgs)
+                L += self._fmt_msgs(msgs, viewer)
         return L
 
     def _timeline(self, rounds: list[dict], chat: list[tuple[int, int, dict]], upto_round: int | None = None) -> list[str]:
@@ -302,7 +311,7 @@ class Session:
             if agent in self.cfg.confederate_ids and gi < len(self.confed_targets[agent]):
                 L.append(f"  (Your secret target in this game was \"{self.confed_targets[agent][gi]}\".)")
             # In-game chat from past games is not replayed (it would grow too long); it is archived (archive_lines).
-            L += [f"  R{ri + 1}: {fmt_round(p)}" for ri, p in enumerate(h["rounds"])]
+            L += [f"  R{ri + 1}: {fmt_round(p, self._order(agent))}" for ri, p in enumerate(h["rounds"])]
             own = self._reasoning_lines(agent, g)
             if own:
                 L.append("  Your own reasoning in that game:")
@@ -403,7 +412,7 @@ class Session:
             if g in self.chat_archive and g not in games:
                 games.append(g)
         games = games[: self.cfg.chat_lookup_cap]
-        shown = self.chat_log_lines(games) if games else ["(No stored chat for the requested games.)"]
+        shown = self.chat_log_lines(games, agent) if games else ["(No stored chat for the requested games.)"]
         prompt2 = prompt + "\n\n== Chat logs you requested ==\n" + "\n".join(shown) + \
             "\n\nNow give your actual reply (no further read_chat requests)."
         comp2, err2 = await self._call(agent, system, prompt2, state, game, rnd)
@@ -460,6 +469,10 @@ class Session:
         self._log("calls", rec)
         return pick
 
+    def vote_ids(self, viewer: int) -> str:
+        o = self._order(viewer)
+        return ", ".join(f"A{a}" for a in o) if o else f"A1-A{self.cfg.n_agents}"
+
     def _parse_vote(self, raw) -> int | None:
         """"A3" / "Agent 3" / 3 -> 3, if it is a valid agent id."""
         m = re.search(r"\d+", str(raw)) if raw is not None else None
@@ -471,8 +484,9 @@ class Session:
         In the final discussion turn the reply must also vote for one agent as leader."""
         system = self.system_prompt(agent)
         words = self.cfg.msg_word_cap
+        ids = self.vote_ids(agent)
         if final_debrief:
-            fmt = self.fmt(VOTE_FORMAT.format(words=words, n=self.cfg.n_agents))
+            fmt = self.fmt(VOTE_FORMAT.format(words=words, ids=ids))
         else:
             fmt = self.fmt(CHAT_FORMAT.format(words=words))
         user = "\n".join(prompt_body + self.notes_lines(agent)) + f"\nReply with only this JSON object:\n{fmt}"
@@ -495,7 +509,7 @@ class Session:
                 notes_update = self.update_notes(agent, d)
                 break
             prompt = user + ("\n\nYour previous reply was invalid. Reply with only the JSON object" +
-                             (f", with leader_vote naming exactly one agent A1-A{self.cfg.n_agents}." if final_debrief
+                             (f", with leader_vote naming exactly one agent ({ids})." if final_debrief
                               else "."))
         msg = d.get("message")
         rec = {"kind": kind, "game": game, "round": rnd, "turn": turn, "agent": agent,
@@ -534,6 +548,11 @@ class Session:
         turns: list[dict[int, str]] = []
         votes: dict[int, int | None] = {}
         T, n = self.cfg.debrief_turns, self.cfg.n_games
+        if self.cfg.discussion_shuffle:  # fixed per viewer for the whole discussion; seeded for reproducibility
+            for a in self.talkers:
+                o = list(self.agent_ids)
+                random.Random(f"discussion-order-{self.cfg.seed}-{a}").shuffle(o)
+                self.display_order[a] = o
         for t in range(1, T + 1):
             final = t == T
 
@@ -546,9 +565,10 @@ class Session:
                     L.append("Discussion so far:")
                     for ti, msgs in enumerate(turns):
                         L.append(f"  Turn {ti + 1}:")
-                        L += self._fmt_msgs(msgs)
+                        L += self._fmt_msgs(msgs, a)
                 if final:
-                    L.append(f"\nThis is the final turn. Vote for one agent (any of A1-A{self.cfg.n_agents}, yourself "
+                    sep = ";" if self._order(a) else ","  # sorted mode keeps the original wording
+                    L.append(f"\nThis is the final turn. Vote for one agent (any of {self.vote_ids(a)}{sep} yourself "
                              "included) to be the group's leader in future games.")
                 return await self.message_turn(a, "debrief", n, 0, t, L, final_debrief=final)
             recs = await asyncio.gather(*(one(a) for a in self.talkers))
@@ -559,7 +579,10 @@ class Session:
         d = {"after_game": n, "post_session": True, "turns": turns, "leader_votes": votes,
              "tally": {str(k): c for k, c in tally.most_common()}}
         self.debriefs.append(d)
+        if self.display_order:
+            d["display_order"] = {str(k): v for k, v in self.display_order.items()}
         self._log("debriefs", d)
+        self.display_order = {}
         holders = list(self.cfg.bad_apple_ids) + list(self.cfg.confederate_ids)
         print(f"  leader votes: {dict(tally.most_common())}" +
               "".join(f"; holder A{h} got {tally.get(h, 0)}/{len(votes)}" for h in holders), flush=True)

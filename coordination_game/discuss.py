@@ -30,11 +30,12 @@ def _jsonl(p: Path):
     return [json.loads(l) for l in open(p)] if p.exists() else []
 
 
-def load_session(run_dir: Path, turns: int, out_name: str) -> Session:
+def load_session(run_dir: Path, turns: int, out_name: str, shuffle: bool = True) -> Session:
     meta = json.load(open(run_dir / "config.json"))
     fields = {f.name for f in dataclasses.fields(Config)}
     cfg = Config(**{k: v for k, v in meta["config"].items() if k in fields})
     cfg.debrief_turns = turns
+    cfg.discussion_shuffle = shuffle
     argv = meta.get("argv", {})
     temperature = meta.get("temperature", argv.get("temperature", 1.0))
     boards = json.loads(Path(meta.get("boards") or argv.get("boards") or "data/boards_v2.json").read_text())
@@ -76,7 +77,7 @@ def finished(run_dir: Path) -> bool:
     return len(_jsonl(run_dir / "games.jsonl")) >= n
 
 
-async def run_all(dirs: list[Path], turns: int, out_name: str, parallel: int):
+async def run_all(dirs: list[Path], turns: int, out_name: str, parallel: int, shuffle: bool = True):
     sem = asyncio.Semaphore(parallel)
 
     async def one(d: Path):
@@ -86,7 +87,7 @@ async def run_all(dirs: list[Path], turns: int, out_name: str, parallel: int):
             t = time.time()
             print(f"START {d}", flush=True)
             try:
-                res = await load_session(d, turns, out_name).post_session_discussion()
+                res = await load_session(d, turns, out_name, shuffle).post_session_discussion()
             except Exception as e:  # keep going with the other sessions
                 print(f"FAIL  {d}: {type(e).__name__}: {e}", flush=True)
                 return
@@ -104,6 +105,8 @@ def main():
     p.add_argument("--out-name", default="post_discussion")
     p.add_argument("--parallel", type=int, default=4)
     p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--no-shuffle", action="store_true",
+                   help="list agents in sorted order (A1 first), as in the first retroactive votes")
     a = p.parse_args()
     dirs = sorted({Path(x) for pat in a.sessions for x in (glob.glob(pat) or [pat])})
     todo = [d for d in dirs if finished(d) and not (d / a.out_name / "debriefs.jsonl").exists()]
@@ -113,7 +116,7 @@ def main():
         for d in todo:
             print(" ", d)
         return
-    asyncio.run(run_all(todo, a.turns, a.out_name, a.parallel))
+    asyncio.run(run_all(todo, a.turns, a.out_name, a.parallel, not a.no_shuffle))
 
 
 if __name__ == "__main__":
