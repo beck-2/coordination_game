@@ -510,7 +510,7 @@ Single blind picks with the exact game-1 round-1 prompt (no history, no channel)
 order shuffled per sample (the same shuffle across models). 4.6 credits (qwen3.5-397b 3.6). 0 invalid picks.
 **qwen3.8-27b not done:** its endpoint returned 504s and dropped streams at 00:30–01:08 (7/240 calls; a manual test call also
 failed at 60 s). The run was stopped. Rerun later with `python -m coordination_game.schelling --models qwen3.8-27b --samples 20
---out runs/schelling1` (resumes).
+--out runs/schelling1` (resumes). **Decision (01:15): skipped by user; report schelling1 as 6 models.**
 
 | model | P(two copies pick the same item) [95% CI over boards] | × chance (0.05) |
 |---|---|---|
