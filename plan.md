@@ -408,6 +408,17 @@ From regex counts over the 6 finished sessions' written and native reasoning, so
   trap and Gemma should not. Natural follow-up for the comm arms (8g-revised), qwen3.5-397b vs gemma, bad apple + chat
   (needs an LLM confederate, since scripted bad apples can't chat).
 
+### chat_trap run (plan `chat_trap`: arm `chat_confed_safe`, 5 seeds × qwen3.5-397b / gemma-4-31b-it / gemma-4-26b-a4b-it)
+- Started 2026-11-07 16:45. The confederate is told holding its target doesn't harm the others' objectives.
+- **17:15: qwen3.5-397b stopped at the user's request** (it seemed to be throttling API bandwidth, and runs ~2 min/round
+  with chat). Its partial s0/s1 will be rerun from scratch. Gemma continues alone (`--skip-models qwen3.5-397b`, parallel 2).
+- **qwen3.5-397b is scheduled overnight:** `runs/chat_trap/qwen_overnight.sh` waits until 00:00 and until the Gemma batch has
+  exited, then runs `batch --plan chat_trap --parallel 5` (skips finished Gemma sessions). The poker-game session
+  (glm-5.2, ≤4 concurrent calls) was told.
+- Early results: gemma-4-31b **converges on the confederate's item** with chat (s0: 12,6,5,4,4,4,4,4,3,3; s1: 10,9,6,5,5,6,5,5,5,5),
+  vs essentially never without chat. gemma-4-26b s0 never converges (all 15s). Confound: the confederate can talk
+  ("I will not change... you must join me"), so chat changes both peer coordination and holder signaling.
+
 ## 8c. Existing stimulus datasets (searched 2026-11-07)
 
 No public dataset of multi-number "boards" like ours turned up. Closest relevant resources:
