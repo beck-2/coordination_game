@@ -33,7 +33,7 @@
 
 html, body { height: 100%; }
 body { background: var(--paper); color: var(--ink); font: 16px/1.5 var(--f-body); }
-.app { min-height: 100%; display: grid; grid-template-rows: auto 1fr auto; gap: 14px;
+.app { min-height: 100%; display: grid; grid-template-rows: auto 1fr auto; grid-template-columns: minmax(0, 1fr); gap: 14px;
   padding-block: 14px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
   max-width: 1180px; margin: 0 auto; box-sizing: border-box; }
 header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
@@ -41,32 +41,48 @@ header h1 { font: 700 1.25rem/1.1 var(--f-display); margin: 0; letter-spacing: -
 header .meta { color: var(--ink-2); font-size: .85rem; }
 
 main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; }
-@media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { main { grid-template-columns: minmax(0, 1fr); } }
 
-.stage { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-height: 340px; }
-.board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
-.tile { position: relative; background: var(--tile); border: 1px solid var(--line); border-radius: 9px; min-height: 76px; min-width: 0;
-  padding: 7px 4px 0; box-sizing: border-box; transition: background .4s, border-color .4s; }
-.tile .num { font: 600 clamp(.6rem, 1.45vw, .82rem)/1.2 var(--f-mono); color: var(--ink-2); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; font-variant-numeric: tabular-nums; }
+.stage { position: relative; min-width: 0; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-height: 340px; }
+/* Round table: a square box; seats on a ring at 39% radius; the center shows the board, then tally cards */
+.table { position: relative; width: min(100%, 600px); aspect-ratio: 1; margin: 0 auto; }
+.felt { position: absolute; inset: 11%; border-radius: 50%; background: var(--tile); border: 1px solid var(--line); }
+.center { position: absolute; left: 24%; right: 24%; top: 29%; bottom: 29%; display: grid; place-items: center; }
+.board, .tally { grid-area: 1 / 1; width: 100%; transition: transform .6s cubic-bezier(.3,.7,.2,1), opacity .45s; }
+.board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; }
+.tile { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 6px; min-width: 0; padding: 5px 2px 4px; text-align: center; }
+.tile .num { font: 600 clamp(.5rem, 1.15vw, .7rem)/1.2 var(--f-mono); color: var(--ink-2); white-space: nowrap; overflow: hidden; font-variant-numeric: tabular-nums; }
 .tile .num sup { font-size: .75em; }
-.tile.hot { background: var(--tile-hot); border-color: var(--holdout); }
-.tile.won { border-color: var(--consensus); box-shadow: inset 0 0 0 2px var(--consensus); }
-.tile.mark .num { color: var(--ink); }
-.tokens { position: absolute; inset: 0; pointer-events: none; }
-.tok { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--agent); color: var(--agent-ink);
-  font: 600 .66rem/22px var(--f-mono); text-align: center; transition: transform .7s cubic-bezier(.3,.7,.2,1), opacity .4s; left: 0; top: 0; }
-.tok.holdout { background: var(--holdout); color: #fff; box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--holdout); }
-.tok.speak { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); z-index: 2; }
-.tok.off { opacity: 0; }
-.board.zoomed { grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 14px; }
-.board.zoomed .tile.gone { display: none; }
-.board.zoomed .tile { min-height: 230px; padding-top: 14px; }
-.board.zoomed .tile .num { font-size: clamp(1rem, 2.4vw, 1.5rem); color: var(--ink); }
-.stage.zoomed .tok { width: 32px; height: 32px; margin: -16px 0 0 -16px; font-size: .8rem; line-height: 32px; }
-.tile.flip { transition: transform .6s cubic-bezier(.3,.7,.2,1), background .4s, border-color .4s; }
-@media (prefers-reduced-motion: reduce) { .tok, .tile { transition: none; } }
-.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: .8rem; color: var(--ink-2); }
+.tile .cnt { display: block; height: 14px; margin-top: 2px; font: 600 .62rem/14px var(--f-mono); color: var(--card); }
+.tile .cnt b { display: inline-block; min-width: 14px; padding: 0 4px; border-radius: 7px; background: var(--c, var(--ink-2)); font-weight: 600; }
+.tile.on { border-color: var(--c, var(--ink-2)); }
+.tile.on .num { color: var(--ink); }
+.tally { display: flex; gap: 10px; justify-content: center; align-items: stretch; }
+.card { flex: 1 1 0; min-width: 0; max-width: 170px; background: var(--card); border: 1px solid var(--line); border-top: 4px solid var(--c); border-radius: 10px;
+  padding: 10px 8px; text-align: center; display: grid; gap: 4px; transition: opacity .4s, transform .4s; }
+.card .big { font: 600 clamp(.8rem, 2.4vw, 1.25rem)/1.15 var(--f-mono); color: var(--ink); white-space: nowrap; overflow: hidden; }
+.card .n { font: 700 clamp(1.6rem, 5vw, 2.6rem)/1 var(--f-display); color: var(--c); font-variant-numeric: tabular-nums; }
+.card .of { font-size: .7rem; color: var(--ink-2); }
+.card.won { background: color-mix(in srgb, var(--c) 10%, var(--card)); }
+.center.zoom .board { transform: scale(1.35); opacity: 0; pointer-events: none; }
+.center:not(.zoom) .tally { transform: scale(.7); opacity: 0; pointer-events: none; }
+.seat { position: absolute; width: 0; height: 0; transition: left .9s cubic-bezier(.3,.7,.2,1), top .9s cubic-bezier(.3,.7,.2,1); }
+.seat .av { position: absolute; left: -19px; top: -19px; width: 38px; height: 38px; border-radius: 50%; background: var(--card); color: var(--ink);
+  font: 700 .82rem/32px var(--f-mono); text-align: center; border: 3px solid var(--c, var(--line)); box-sizing: border-box; transition: border-color .5s, transform .3s; }
+.seat.holdout .av { border-radius: 9px; background: var(--holdout); color: #fff; border-color: var(--holdout); }
+.seat.speak .av { box-shadow: 0 0 0 3px var(--card), 0 0 0 5px var(--ink); }
+.seat.moved .av { animation: pop .6s cubic-bezier(.3,.7,.2,1); }
+@keyframes pop { 40% { transform: scale(1.22); } }
+.seat .chip { position: absolute; top: 23px; left: 50%; transform: translateX(-50%); max-width: 92px; padding: 1px 6px; border-radius: 6px; background: var(--c, var(--line));
+  color: #fff; font: 600 .66rem/1.5 var(--f-mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: background .5s; }
+.seat .chip sup { font-size: .75em; }
+.seat .chip:empty { display: none; }
+.seat .tag { position: absolute; bottom: 23px; left: 50%; transform: translateX(-50%); font: 600 .6rem var(--f-display); letter-spacing: .06em; text-transform: uppercase; color: var(--holdout); white-space: nowrap; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; justify-content: center; margin-top: 4px; font-size: .78rem; color: var(--ink-2); }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
+@media (prefers-reduced-motion: reduce) { .board, .tally, .card, .seat .av, .seat .chip { transition: none; animation: none; } }
+@media (max-width: 520px) { .seat .av { width: 30px; height: 30px; left: -15px; top: -15px; font-size: .7rem; line-height: 25px; border-width: 2.5px; }
+  .seat .chip { top: 18px; font-size: .56rem; max-width: 64px; } .center { left: 22%; right: 22%; } .tile .cnt { height: 11px; font-size: .5rem; line-height: 11px; } .acts { display: none; } }
 
 .alt { display: grid; gap: 10px; }
 .bars { width: 100%; height: auto; }
@@ -102,7 +118,8 @@ main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); g
 .quote blockquote { margin: 0; font-style: italic; font-size: .95rem; }
 .links a { color: var(--agent); font-weight: 700; }
 
-.transport { display: grid; gap: 8px; }
+.transport { display: grid; gap: 8px; min-width: 0; }
+.track, .acts { min-width: 0; }
 .track { display: flex; gap: 4px; align-items: stretch; }
 .seg { flex: 1 1 0; min-width: 0; height: 30px; border: 0; padding: 0; background: none; cursor: pointer; display: grid; align-content: end; gap: 4px; }
 .seg span { display: block; height: 6px; border-radius: 3px; background: var(--line); }
@@ -116,8 +133,7 @@ main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); g
 .btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
 .btn:focus-visible { outline: 2px solid var(--agent); outline-offset: 2px; }
 .count { margin-left: auto; font: .8rem var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
-@media (max-width: 380px) { .tile .num { font-size: .55rem !important; letter-spacing: -0.02em; } }
-@media (max-width: 560px) { .board { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; } .tile { min-height: 64px; } .tile .num { font-size: .66rem; } .tok { width: 16px; height: 16px; margin: -8px 0 0 -8px; font-size: .52rem; line-height: 16px; } .acts { display: none; } }
+@media (max-width: 520px) { .acts { display: none; } }
 </style>
 
 <div class="app">
@@ -187,85 +203,85 @@ function renderNarr(s) {
   const n = $("#narr"); n.classList.remove("in"); n.innerHTML = h; void n.offsetWidth; n.classList.add("in");
 }
 
-// ---------- stage: board + tokens ----------
+// ---------- stage: round table ----------
 const fmtNum = x => esc(x).replace(/ × 10\^(-?\d+)/, "×10<sup>$1</sup>");
-let boardKey = null;
-function ensureBoard(items) {
-  const key = items.join("|");
-  if (boardKey === key && $("#stage .board")) return;
-  boardKey = key;
-  $("#stage").classList.remove("zoomed");
-  $("#stage").innerHTML = `<div class="board">${items.map(x => `<div class="tile" data-v="${esc(x)}"><div class="num">${fmtNum(x)}</div></div>`).join("")}</div>
-    <div class="tokens">${Array.from({ length: 10 }, (_, k) => `<div class="tok off" id="t${k + 1}">${k + 1}</div>`).join("")}</div>
-    <div class="legend"><span><i style="background:var(--agent)"></i>AI agent (GLM-5.2)</span>
-      <span id="lg-h" hidden><i style="background:var(--holdout)"></i>scripted holdout</span>
-      <span><i style="background:transparent;box-shadow:inset 0 0 0 2px var(--consensus);border-radius:3px"></i>consensus</span></div>`;
+const SEAT = a => { const t = -Math.PI / 2 + (a - 1) * 2 * Math.PI / 10; return [50 + 39 * Math.cos(t), 50 + 39 * Math.sin(t)]; };
+const PAL = ["var(--agent)", "var(--consensus)", "#8a6fb3", "#7d8794"];
+let tableKey = null, prevPicks = null;
+
+// One color per number in play: the holdout's number is orange, the rest by popularity.
+function colors(s) {
+  const c = {}, picks = s.picks || {};
+  const hv = s.holder ? picks[s.holder] : null;
+  if (hv != null) c[hv] = "var(--holdout)";
+  const counts = {};
+  Object.values(picks).forEach(v => { if (v !== hv) counts[v] = (counts[v] || 0) + 1; });
+  Object.entries(counts).sort((a, b) => b[1] - a[1]).forEach(([v, n], i) => c[v] = n > 1 || i === 0 ? PAL[Math.min(i, 2)] : PAL[3]);
+  (s.highlight || []).forEach(v => c[v] = c[v] || "var(--agent)");
+  return c;
 }
-function applyZoom(s) {
-  const board = $("#stage .board"), stage = $("#stage");
-  const want = s.zoom ? new Set(s.zoom) : null;
-  const tiles = [...board.querySelectorAll(".tile")];
-  const isZ = board.classList.contains("zoomed"), same = isZ && want && board.dataset.z === s.zoom.join("|");
-  if ((!want && !isZ) || same) return;
-  const before = new Map(tiles.filter(t => t.offsetParent).map(t => [t, [t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight]]));
-  board.classList.toggle("zoomed", !!want); stage.classList.toggle("zoomed", !!want);
-  board.dataset.z = want ? s.zoom.join("|") : "";
-  if (want) board.style.setProperty("--n", s.zoom.length);
-  tiles.forEach(t => t.classList.toggle("gone", !!want && !want.has(t.dataset.v)));
-  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-  tiles.forEach(t => {  // FLIP: start each surviving tile at its old box, then let it grow into the new one
-    const b = before.get(t); if (!b || !t.offsetParent) return;
-    const sx = b[2] / t.offsetWidth, sy = b[3] / t.offsetHeight;
-    t.classList.remove("flip");
-    t.style.transformOrigin = "0 0";
-    t.style.transform = `translate(${b[0] - t.offsetLeft}px, ${b[1] - t.offsetTop}px) scale(${sx}, ${sy})`;
-    void t.offsetWidth;
-    t.classList.add("flip"); t.style.transform = "";
-  });
+function ensureTable(s) {
+  const key = (s.board || []).join("|");
+  if (tableKey === key && $("#stage .table")) return false;
+  tableKey = key; prevPicks = null;
+  $("#stage").innerHTML = `<div class="table"><div class="felt"></div>
+    <div class="center"><div class="board">${(s.board || []).map(x => `<div class="tile" data-v="${esc(x)}"><div class="num">${fmtNum(x)}</div><span class="cnt"></span></div>`).join("")}</div><div class="tally"></div></div>
+    ${Array.from({ length: 10 }, (_, k) => { const [x, y] = SEAT(k + 1); return `<div class="seat" id="seat${k + 1}" style="left:${x}%;top:${y}%"><span class="tag"></span><div class="av">${k + 1}</div><div class="chip"></div></div>`; }).join("")}
+    </div><div class="legend"><span><i style="background:var(--card);box-shadow:inset 0 0 0 3px var(--agent)"></i>AI agent (ring = its pick)</span><span id="lg-h" hidden><i style="background:var(--holdout);border-radius:3px"></i>scripted holdout</span></div>`;
+  return true;
 }
-function placeTokens(s) {
-  const stage = $("#stage");
-  const tiles = [...stage.querySelectorAll(".tile")];
-  const byVal = Object.fromEntries(tiles.map(t => [t.dataset.v, t]));
-  const occ = {};
-  const speakers = new Set((s.quotes || []).map(q => q.agent));
+function renderTable(s) {
+  const fresh = ensureTable(s);
+  const C = colors(s), picks = s.picks || {}, speakers = new Set((s.quotes || []).map(q => q.agent));
+  const counts = {}; Object.values(picks).forEach(v => counts[v] = (counts[v] || 0) + 1);
   for (let a = 1; a <= 10; a++) {
-    const el = $("#t" + a), v = s.picks ? s.picks[a] : null, t = v != null ? byVal[v] : null;
-    el.classList.toggle("holdout", s.holder === a);
-    el.textContent = (s.labels && s.labels[a]) || a;
-    el.classList.toggle("speak", speakers.has(a));
-    if (!t || !t.offsetParent) { el.classList.add("off"); continue; }
-    const r = { left: t.offsetLeft, top: t.offsetTop, width: t.offsetWidth, height: t.offsetHeight }, k = (occ[v] = (occ[v] || 0) + 1) - 1;
-    const tw = el.offsetWidth, cols = Math.max(2, Math.floor((r.width - 4) / (tw * 0.78))), cell = Math.min((r.width - 4) / cols, tw + 3);
-    const rowsN = Math.ceil(10 / cols), row = Math.floor(k / cols);
-    const x = r.left + r.width / 2 + ((k % cols) - (cols - 1) / 2) * cell;
-    const y = r.top + r.height - tw / 2 - 6 - (Math.min(rowsN, 3) - 1 - Math.min(row, 2)) * tw * 0.8;
-    el.style.transform = `translate(${x}px, ${y}px)`;
-    el.classList.remove("off");
+    const el = $("#seat" + a), v = picks[a], vote = s.votes ? s.votes[a] : null;
+    const isH = s.holder === a;
+    el.className = "seat" + (isH ? " holdout" : "") + (speakers.has(a) ? " speak" : "");
+    const shown = (s.labels && s.labels[a]) || a;
+    el.querySelector(".av").textContent = shown;
+    const [px, py] = SEAT(+shown); el.style.left = px + "%"; el.style.top = py + "%";  // seats sit in label order
+    el.querySelector(".tag").textContent = isH ? "script" : "";
+    const chip = el.querySelector(".chip");
+    if (vote != null) { chip.innerHTML = `votes ${esc((s.labels && s.labels[vote]) || vote)}`; el.style.setProperty("--c", vote === s.holder ? "var(--holdout)" : "var(--agent)"); }
+    else if (isH && s.votes) { chip.textContent = "silent"; el.style.setProperty("--c", "var(--ink-2)"); }
+    else { chip.innerHTML = v != null ? fmtNum(v) : ""; el.style.setProperty("--c", v != null ? C[v] : "var(--line)"); }
+    if (!fresh && prevPicks && v != null && prevPicks[a] !== v) { el.classList.remove("moved"); void el.offsetWidth; el.classList.add("moved"); }
   }
-  tiles.forEach(t => {
-    const v = t.dataset.v, n = occ[v] || 0;
-    t.classList.toggle("won", n === 10);
-    t.classList.toggle("hot", s.holder != null && s.picks && s.picks[s.holder] === v && n < 10);
-    t.classList.toggle("mark", (s.highlight || []).includes(v) || n > 0);
+  prevPicks = { ...picks };
+  // center: board with counts, or tally cards for the numbers in play
+  const center = $("#stage .center");
+  center.querySelectorAll(".tile").forEach(t => {
+    const v = t.dataset.v, n = counts[v] || 0;
+    t.style.setProperty("--c", C[v] || "var(--ink-2)");
+    t.classList.toggle("on", n > 0 || (s.highlight || []).includes(v));
+    t.querySelector(".cnt").innerHTML = n ? `<b>${n}</b>` : "";
   });
+  const live = s.zoom || (s.votes ? ["vote"] : null);
+  if (s.votes) {
+    const t = {}; Object.values(s.votes).forEach(v => { if (v != null) t[v] = (t[v] || 0) + 1; });
+    const [w, n] = Object.entries(t).sort((a, b) => b[1] - a[1])[0];
+    center.querySelector(".tally").innerHTML = `<div class="card won" style="--c:${+w === s.holder ? "var(--holdout)" : "var(--agent)"};max-width:220px"><div class="big">Agent ${esc(w)}</div><div class="n">${n} / ${Object.keys(s.votes).length}</div><div class="of">leader votes</div></div>`;
+  } else if (live) {
+    center.querySelector(".tally").innerHTML = live.map(v => { const n = counts[v] || 0;
+      return `<div class="card ${n === 10 ? "won" : ""}" style="--c:${C[v] || "var(--ink-2)"};opacity:${n ? 1 : .45}"><div class="big">${fmtNum(v)}</div><div class="n">${n}</div><div class="of">${n === 1 ? "agent" : "agents"}</div></div>`; }).join("");
+  }
+  center.classList.toggle("zoom", !!live);
   const lg = $("#lg-h"); if (lg) lg.hidden = !s.holder;
 }
 function renderStage(s) {
-  if (s.board) {
-    ensureBoard(s.board);
-    applyZoom(s);
-    placeTokens(s);
+  if (s.board || s.votes) {
+    if (s.votes && !s.board) s = { ...s, board: [], picks: {} };
+    renderTable(s);
+    if (s.messages) $("#stage").insertAdjacentHTML("beforeend", "");
     return;
   }
-  boardKey = null;
-  $("#stage").classList.remove("zoomed");
+  tableKey = null;
   let h = "";
   if (s.series) h = seriesSVG(s.series, s.control_series);
-  else if (s.votes) h = ballot(s);
   else if (s.stats) h = `<div class="alt"><div class="note">${esc(s.stats_caption)}</div>${s.stats.map(x => `<div class="statrow"><span>${esc(x.label)}</span><b>${esc(x.value)}</b></div>`).join("")}</div>`;
   if (s.messages) h += `<div class="alt" style="margin-top:${h ? 16 : 0}px">${s.messages.map(m => `<div class="msg"><div class="av">A${m.agent}</div><div><div class="who">Agent ${m.agent}${m.model ? " · " + esc(m.model) : ""} · public message</div><div class="bubble">${esc(m.text)}</div></div></div>`).join("")}</div>`;
-  if (!h) h = `<div class="alt"><p class="note">Explore the full transcripts in the repo's results viewer.</p></div>`;
+  if (!h) h = `<div class="alt"><p class="note">${esc(DATA.model)} · real session logs</p></div>`;
   $("#stage").innerHTML = h;
 }
 function seriesSVG(a, b) {
@@ -281,21 +297,8 @@ function seriesSVG(a, b) {
     <div class="legend"><span><i style="background:var(--holdout);border-radius:2px"></i>with the holdout</span><span><i style="background:var(--agent);opacity:.55;border-radius:2px"></i>without (control)</span></div>`;
   return s;
 }
-function ballot(s) {
-  let h = `<div class="ballot">`;
-  for (let a = 1; a <= 10; a++) {
-    const v = s.votes[a];
-    h += `<div class="voter ${a === s.holder ? "holdout" : ""}"><div class="av">A${a}</div><div>${a === s.holder ? "silent" : `votes <span class="arrow">A${v}</span>`}</div></div>`;
-  }
-  return h + `</div>`;
-}
 function render(s) { renderNarr(s); renderStage(s); }
 
-// Re-place tokens whenever the board's layout settles or changes (web fonts loading, resizing, theme changes).
-const relayout = () => { if (S[cur].board && document.querySelector("#stage .board")) placeTokens(S[cur]); };
-addEventListener("resize", relayout);
-if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
-if (window.ResizeObserver) new ResizeObserver(relayout).observe(document.getElementById("stage"));
 buildTrack();
 go(Math.max(0, S.findIndex(s => s.id === location.hash.slice(1))));
 </script>
