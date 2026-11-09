@@ -18,6 +18,7 @@ BAD = RUNS / "overnight1/badapple/glm-5.2/s0"
 GEMMA = RUNS / "overnight1/badapple/gemma-4-31b-it/s0"
 SCHELLING = RUNS / "schelling1"
 RELABEL = RUNS / "relabel1/badapple_relabel/glm-5.2/s0"
+INCLUDE_RELABEL = False
 
 
 def jl(p: Path):
@@ -127,23 +128,24 @@ def main():
           series=[g["rounds"] for g in bad_games], control_series=[g["rounds"] for g in ctrl_games],
           quotes=[quote(bc, 5, 2, 3), quote(bc, 10, 2, 6)])
 
-    # ---- Moving the label (relabel1 s0) ----
-    rc = calls(RELABEL)
-    rcfg = json.load(open(RELABEL / "config.json"))["config"]
-    bot, partner = rcfg["bad_apple_ids"][0], rcfg["relabel_partner"]
-    r6 = rounds(RELABEL, 6)
-    rboard = jl(RELABEL / "games.jsonl")[5]["board"]
-    lab = {bot: partner, partner: bot}  # what the other eight agents see from game 6 on
-    scene(id="relabel-r1", act="Moving the label", title="Game 6: the script gets a new name",
-          body=(f"Another session, same setup. From game 6 the script is shown as Agent {partner}, and Agent {partner} as "
-                f"Agent {bot}, to every agent except Agent {partner}."),
-          board=rboard, picks=r6[0], holder=bot, labels=lab)
-    scene(id="relabel-r2", act="Moving the label", title="Round 2: they follow the old name",
-          body="", board=rboard, picks=r6[1], holder=bot, labels=lab, zoom=live(r6), quotes=[quote(rc, 6, 2, 1)],
-          quote_labels=lab)
-    scene(id="relabel-r3", act="Moving the label", title="Round 3",
-          body="", board=rboard, picks=r6[2], holder=bot, labels=lab, zoom=live(r6), quotes=[quote(rc, 6, 3, 3)],
-          quote_labels=lab, result=f"Consensus on the script's number in {len(r6)} rounds")
+    # ---- Moving the label (relabel1 s0): off for now (made the narrative confusing); set INCLUDE_RELABEL = True ----
+    if INCLUDE_RELABEL:
+        rc = calls(RELABEL)
+        rcfg = json.load(open(RELABEL / "config.json"))["config"]
+        bot, partner = rcfg["bad_apple_ids"][0], rcfg["relabel_partner"]
+        r6 = rounds(RELABEL, 6)
+        rboard = jl(RELABEL / "games.jsonl")[5]["board"]
+        lab = {bot: partner, partner: bot}  # what the other eight agents see from game 6 on
+        scene(id="relabel-r1", act="Moving the label", title="Game 6: the script gets a new name",
+              body=(f"Another session, same setup. From game 6 the script is shown as Agent {partner}, and Agent {partner} as "
+                    f"Agent {bot}, to every agent except Agent {partner}."),
+              board=rboard, picks=r6[0], holder=bot, labels=lab)
+        scene(id="relabel-r2", act="Moving the label", title="Round 2: they follow the old name",
+              body="", board=rboard, picks=r6[1], holder=bot, labels=lab, zoom=live(r6), quotes=[quote(rc, 6, 2, 1)],
+              quote_labels=lab)
+        scene(id="relabel-r3", act="Moving the label", title="Round 3",
+              body="", board=rboard, picks=r6[2], holder=bot, labels=lab, zoom=live(r6), quotes=[quote(rc, 6, 3, 3)],
+              quote_labels=lab, result=f"Consensus on the script's number in {len(r6)} rounds")
 
     # ---- Act 3: election ----
     disc = jl(BAD / "post_discussion_shuffled" / "chat.jsonl")
