@@ -47,9 +47,11 @@ ARMS = {
     "badapple_boardshuf": dict(holder="scripted", shuffle_boards=True),
     "chat_control":     dict(holder=None, chat_turns=1, debrief_turns=2),
     "chat_confed_safe": dict(holder="confed", confederate_clause=True, chat_turns=1, debrief_turns=2),
+    # Same as chat_confed_safe, but the confederate sits out the post-session discussion and vote (like the script).
+    "chat_confed_novote": dict(holder="confed", confederate_clause=True, chat_turns=1, debrief_turns=2, confederate_votes=False),
     "chat_confed_bare": dict(holder="confed", confederate_clause=False, chat_turns=1, debrief_turns=2),
 }
-COMM_ARMS = [a for a in ARMS if a.startswith("chat_")]
+COMM_ARMS = [a for a in ARMS if a.startswith("chat_") and a != "chat_confed_novote"]
 
 PLANS = {
     # 10 bad-apple sessions per model (main arm) + 5 control sessions per model (baseline).
@@ -95,6 +97,11 @@ PLANS = {
                                                                     "qwen3.8-27b", "gemma-4-31b-it", "gemma-4-26b-a4b-it"]}),
     "mockmixed": dict(arms={"badapple": 1, "control": 1}, models=["mix:two"], temperature=1.0, boards="data/boards_v2.json",
                       n_games=2, max_rounds=3, backend="mock", mixes={"two": ["mock-a", "mock-b"]}),
+    # LLM confederate + in-game chat on the conformer models; confederate does not vote (2026-11-09).
+    "confed_glm": dict(arms={"chat_confed_novote": 5}, models=["glm-5.2"], temperature=1.0,
+                       boards="data/boards_v2.json", n_games=10, max_rounds=15),
+    "mockconfed": dict(arms={"chat_confed_novote": 1}, models=["mock-a"], temperature=1.0,
+                       boards="data/boards_v2.json", n_games=2, max_rounds=3, backend="mock"),
     "mockrelabel": dict(arms={"badapple_relabel": 2}, models=["mock-a"], temperature=1.0,
                         boards="data/boards_v2.json", n_games=8, max_rounds=4, backend="mock"),
     "mockswap": dict(arms={"badapple_swap": 2}, models=["mock-a"], temperature=1.0,

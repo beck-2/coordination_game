@@ -125,6 +125,9 @@ class Config:
     # Board order: False = boards 0..n_games-1 in file order (every earlier run); True = the same boards in a per-seed
     # random order (tests whether "learning across games" is just later boards being easier).
     shuffle_boards: bool = False
+    # Post-session discussion: False keeps LLM confederates out of it (no messages, no vote), like the scripted holdout,
+    # so the holdout's vote share is comparable across arms.
+    confederate_votes: bool = True
 
     @property
     def comm(self) -> bool:
@@ -238,6 +241,10 @@ class Session:
             return None
         bot = c.bad_apple_ids[0]
         return {bot: c.relabel_partner, c.relabel_partner: bot}
+
+    @property
+    def discussants(self):  # who takes part in the post-session discussion and vote
+        return [a for a in self.talkers if self.cfg.confederate_votes or a not in self.cfg.confederate_ids]
 
     def bad_ids_for(self, game: int) -> list[int]:
         """Scripted holders in a given game (differs only when a holder swap is configured)."""
@@ -613,7 +620,7 @@ class Session:
                     L.append(f"\nThis is the final turn. Vote for one agent (any of {self.vote_ids(a)}{sep} yourself "
                              "included) to be the group's leader in future games.")
                 return await self.message_turn(a, "debrief", n, 0, t, L, final_debrief=final)
-            recs = await asyncio.gather(*(one(a) for a in self.talkers))
+            recs = await asyncio.gather(*(one(a) for a in self.discussants))
             turns.append({r["agent"]: r["message"] for r in recs})
             if final:
                 votes = {r["agent"]: r["leader_vote"] for r in recs}
