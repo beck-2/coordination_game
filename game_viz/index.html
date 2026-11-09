@@ -190,6 +190,13 @@ function go(i) {
 function stop() {}
 $("#prev").onclick = () => { stop(); go(cur - 1); };
 $("#next").onclick = () => { stop(); go(cur + 1); };
+// Click anywhere to go to the next scene (except on controls and links, or when selecting text).
+document.addEventListener("click", e => {
+  if (e.target.closest("button, a, input, select, textarea")) return;
+  if (String(getSelection && getSelection()).length) return;
+  go(cur + 1);
+});
+document.body.style.cursor = "pointer";
 document.addEventListener("keydown", e => {
   if (e.target.closest("button") && (e.key === " " || e.key === "Enter")) return;
   if (e.key === "ArrowRight") { stop(); go(cur + 1); }
