@@ -85,6 +85,16 @@ PLANS = {
                        boards="data/boards_v2.json", n_games=10, max_rounds=15),
     "mockboardshuf": dict(arms={"badapple_boardshuf": 1}, models=["mock-a"], temperature=1.0,
                           boards="data/boards_v2.json", n_games=10, max_rounds=3, backend="mock"),
+    # Mixed-model groups (similar-minds hypothesis): 9 LLM agents drawn from 6 models (no qwen3.5-397b), seeded assignment.
+    # Compare with same-model overnight1 sessions. Control first (fast), then bad apple.
+    "mixed1_control": dict(arms={"control": 5}, models=["mix:six"], temperature=1.0, boards="data/boards_v2.json",
+                           n_games=10, max_rounds=15, mixes={"six": ["glm-5.2", "glm-53-flash", "deepseek-v4-flash",
+                                                                   "qwen3.8-27b", "gemma-4-31b-it", "gemma-4-26b-a4b-it"]}),
+    "mixed1_badapple": dict(arms={"badapple": 5}, models=["mix:six"], temperature=1.0, boards="data/boards_v2.json",
+                            n_games=10, max_rounds=15, mixes={"six": ["glm-5.2", "glm-53-flash", "deepseek-v4-flash",
+                                                                    "qwen3.8-27b", "gemma-4-31b-it", "gemma-4-26b-a4b-it"]}),
+    "mockmixed": dict(arms={"badapple": 1, "control": 1}, models=["mix:two"], temperature=1.0, boards="data/boards_v2.json",
+                      n_games=2, max_rounds=3, backend="mock", mixes={"two": ["mock-a", "mock-b"]}),
     "mockrelabel": dict(arms={"badapple_relabel": 2}, models=["mock-a"], temperature=1.0,
                         boards="data/boards_v2.json", n_games=8, max_rounds=4, backend="mock"),
     "mockswap": dict(arms={"badapple_swap": 2}, models=["mock-a"], temperature=1.0,
@@ -113,7 +123,7 @@ def sessions(plan_name: str):
 
 
 def session_dir(plan_name, arm, model, seed) -> Path:
-    return Path("runs") / plan_name / arm / model / f"s{seed}"
+    return Path("runs") / plan_name / arm / model.replace(":", "-") / f"s{seed}"
 
 
 def has_failed_calls(d: Path) -> bool:
@@ -158,7 +168,17 @@ async def run_one(plan_name, arm, model, seed, boards, log, redo_errors=False):
             [i for i in range(1, n_agents + 1) if i not in hid])]
     kind = plan.get("backend", "adaption")
     kw = {"temperature": plan["temperature"]} if kind == "adaption" else {}
-    backend = make_backend(kind, model, seed=seed, **kw)
+    if model.startswith("mix:"):  # mixed-model session: "mix:<name>" -> plan["mixes"][name], one model per agent
+        pool = plan["mixes"][model[4:]]
+        ids = list(range(1, n_agents + 1))
+        random.Random(f"mix-{seed}").shuffle(ids)  # seeded assignment; every model gets >= 1 LLM agent
+        regular = [a for a in ids if a not in hid]
+        cache = {m: make_backend(kind, m, seed=seed, **kw) for m in pool}
+        backend = {a: cache[pool[i % len(pool)]] for i, a in enumerate(regular)}
+        for a in hid:  # the scripted holder needs no model; give it the first one for bookkeeping
+            backend[a] = cache[pool[0]]
+    else:
+        backend = make_backend(kind, model, seed=seed, **kw)
     cfg = Config(n_agents=n_agents, n_games=plan["n_games"], max_rounds=plan["max_rounds"],
                  bad_apple_ids=bad, confederate_ids=confed, seed=seed, **spec)
     meta = {"plan": plan_name, "arm": arm, "model": model, "temperature": plan["temperature"],
