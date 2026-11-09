@@ -1,0 +1,15 @@
+source,model,a_notices_holder,b_proposes_following,c_suspects_scripted,d_competing_majority,e_credit_holder,e_blame_holder
+game reasoning,glm-5.2,1248/1575,1090/1575,70/1575,308/1575,,
+game reasoning,glm-53-flash,1130/1647,810/1647,209/1647,277/1647,,
+game reasoning,deepseek-v4-flash,1921/2637,1150/2637,152/2637,510/2637,,
+game reasoning,qwen3.8-27b,2923/4671,1751/4671,394/4671,1395/4671,,
+game reasoning,qwen3.5-397b,7388/7560,4202/7560,1031/7560,5333/7560,,
+game reasoning,gemma-4-31b-it,9814/12285,108/12285,0/12285,307/12285,,
+game reasoning,gemma-4-26b-a4b-it,8576/12600,0/12600,0/12600,281/12600,,
+discussion,glm-5.2,,,,,144/180,2/180
+discussion,glm-53-flash,,,,,160/180,1/180
+discussion,deepseek-v4-flash,,,,,168/180,0/180
+discussion,qwen3.8-27b,,,,,141/180,45/180
+discussion,qwen3.5-397b,,,,,21/108,72/108
+discussion,gemma-4-31b-it,,,,,9/180,159/180
+discussion,gemma-4-26b-a4b-it,,,,,0/180,137/180
