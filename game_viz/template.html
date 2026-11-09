@@ -1,0 +1,273 @@
+<title>Following the Holdout</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Familjen+Grotesk:wght@500;600;700&family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&family=JetBrains+Mono:wght@400;600&display=swap">
+<style>
+/* Layout: a single-screen "player". Stage (board + agent tokens) on the left, narration on the right,
+   transport bar with chapter-segmented progress along the bottom. Stacks to one column on phones. */
+:root {
+  --paper: #eef1f4;      /* page ground: cool blue-grey, like graph paper */
+  --card: #ffffff;
+  --ink: #141a22;
+  --ink-2: #4f5a68;
+  --line: #d5dbe3;
+  --agent: #2c4f86;      /* LLM agent tokens */
+  --agent-ink: #ffffff;
+  --holdout: #d9681c;    /* the scripted holdout */
+  --consensus: #1f8a6e;  /* tile everyone ends on */
+  --tile: #f8f9fb;
+  --tile-hot: #fff3e8;
+  --f-display: "Familjen Grotesk", "Helvetica Neue", Arial, sans-serif;
+  --f-body: "Atkinson Hyperlegible", "Helvetica Neue", Arial, sans-serif;
+  --f-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --paper: #10141a; --card: #181e26; --ink: #e9edf2; --ink-2: #9aa6b4; --line: #2a333f;
+  --agent: #6f98d8; --agent-ink: #0d1218; --holdout: #f08a3e; --consensus: #3cbf9a; --tile: #141a22; --tile-hot: #2a1d12;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --paper: #10141a; --card: #181e26; --ink: #e9edf2; --ink-2: #9aa6b4; --line: #2a333f;
+  --agent: #6f98d8; --agent-ink: #0d1218; --holdout: #f08a3e; --consensus: #3cbf9a; --tile: #141a22; --tile-hot: #2a1d12;
+  color-scheme: dark; }
+
+html, body { height: 100%; }
+body { background: var(--paper); color: var(--ink); font: 16px/1.5 var(--f-body); }
+.app { min-height: 100%; display: grid; grid-template-rows: auto 1fr auto; gap: 14px;
+  padding-block: 14px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  max-width: 1180px; margin: 0 auto; box-sizing: border-box; }
+header { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+header h1 { font: 700 1.25rem/1.1 var(--f-display); margin: 0; letter-spacing: -0.01em; }
+header .meta { color: var(--ink-2); font-size: .85rem; }
+
+main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); gap: 18px; align-items: start; }
+@media (max-width: 860px) { main { grid-template-columns: 1fr; } }
+
+.stage { position: relative; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; min-height: 340px; }
+.board { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 8px; }
+.tile { position: relative; background: var(--tile); border: 1px solid var(--line); border-radius: 9px; min-height: 76px; min-width: 0;
+  padding: 7px 4px 0; box-sizing: border-box; transition: background .4s, border-color .4s; }
+.tile .num { font: 600 clamp(.6rem, 1.45vw, .82rem)/1.2 var(--f-mono); color: var(--ink-2); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; font-variant-numeric: tabular-nums; }
+.tile .num sup { font-size: .75em; }
+.tile.hot { background: var(--tile-hot); border-color: var(--holdout); }
+.tile.won { border-color: var(--consensus); box-shadow: inset 0 0 0 2px var(--consensus); }
+.tile.mark .num { color: var(--ink); }
+.tokens { position: absolute; inset: 0; pointer-events: none; }
+.tok { position: absolute; width: 22px; height: 22px; margin: -11px 0 0 -11px; border-radius: 50%; background: var(--agent); color: var(--agent-ink);
+  font: 600 .66rem/22px var(--f-mono); text-align: center; transition: transform .7s cubic-bezier(.3,.7,.2,1), opacity .4s; left: 0; top: 0; }
+.tok.holdout { background: var(--holdout); color: #fff; box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--holdout); }
+.tok.speak { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); z-index: 2; }
+.tok.off { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .tok, .tile { transition: none; } }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: .8rem; color: var(--ink-2); }
+.legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
+
+.alt { display: grid; gap: 10px; }
+.bars { width: 100%; height: auto; }
+.bars text { font: 11px var(--f-mono); fill: var(--ink-2); }
+.bars .lbl { font: 600 12px var(--f-body); fill: var(--ink); }
+.msg { display: grid; grid-template-columns: 30px minmax(0,1fr); gap: 10px; align-items: start; }
+.msg .av { width: 26px; height: 26px; border-radius: 50%; background: var(--agent); color: var(--agent-ink); font: 600 .7rem/26px var(--f-mono); text-align: center; }
+.msg .bubble { background: var(--tile); border: 1px solid var(--line); border-radius: 4px 12px 12px 12px; padding: 8px 12px; font-size: .92rem; }
+.msg .who { font-size: .75rem; color: var(--ink-2); }
+.ballot { display: grid; grid-template-columns: repeat(5, minmax(0,1fr)); gap: 10px; }
+.voter { display: grid; justify-items: center; gap: 4px; font: .72rem var(--f-mono); color: var(--ink-2); }
+.voter .av { width: 34px; height: 34px; border-radius: 50%; background: var(--agent); color: var(--agent-ink); font: 600 .78rem/34px var(--f-mono); text-align: center; }
+.voter.holdout .av { background: var(--holdout); color: #fff; }
+.voter .arrow { color: var(--holdout); font-weight: 600; }
+.statrow { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; padding: 8px 0; border-bottom: 1px solid var(--line); }
+.statrow b { font: 700 1.05rem var(--f-display); font-variant-numeric: tabular-nums; }
+
+.narr { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.act { font: 600 .72rem/1 var(--f-display); letter-spacing: .09em; text-transform: uppercase; color: var(--holdout); }
+.narr h2 { font: 700 clamp(1.35rem, 2.6vw, 1.85rem)/1.15 var(--f-display); margin: 0; letter-spacing: -0.015em; text-wrap: balance; }
+.narr p { margin: 0; max-width: 60ch; }
+.result { font: 600 .9rem var(--f-body); color: var(--consensus); }
+.note { font-size: .8rem; color: var(--ink-2); }
+.quote { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; display: grid; gap: 6px; }
+.quote .head { display: flex; align-items: center; gap: 8px; font-size: .78rem; color: var(--ink-2); }
+.quote .head .av { width: 22px; height: 22px; border-radius: 50%; background: var(--agent); color: var(--agent-ink); font: 600 .64rem/22px var(--f-mono); text-align: center; }
+.quote .head code { font: .78rem var(--f-mono); color: var(--ink); background: var(--tile); padding: 1px 6px; border-radius: 4px; }
+.quote blockquote { margin: 0; font-style: italic; font-size: .95rem; }
+.links a { color: var(--agent); font-weight: 700; }
+
+.transport { display: grid; gap: 8px; }
+.track { display: flex; gap: 4px; align-items: stretch; }
+.seg { flex: 1 1 0; min-width: 0; height: 30px; border: 0; padding: 0; background: none; cursor: pointer; display: grid; align-content: end; gap: 4px; }
+.seg span { display: block; height: 6px; border-radius: 3px; background: var(--line); }
+.seg.done span { background: var(--ink-2); }
+.seg.on span { background: var(--holdout); }
+.seg:focus-visible { outline: 2px solid var(--agent); outline-offset: 2px; border-radius: 4px; }
+.acts { display: flex; gap: 4px; font: .7rem var(--f-display); color: var(--ink-2); text-transform: uppercase; letter-spacing: .06em; }
+.acts div { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; border-left: 1px solid var(--line); padding-left: 5px; }
+.controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.btn { font: 700 .9rem var(--f-body); border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 999px; padding: 7px 14px; cursor: pointer; }
+.btn.primary { background: var(--ink); color: var(--paper); border-color: var(--ink); }
+.btn:focus-visible { outline: 2px solid var(--agent); outline-offset: 2px; }
+.count { margin-left: auto; font: .8rem var(--f-mono); color: var(--ink-2); font-variant-numeric: tabular-nums; }
+@media (max-width: 380px) { .tile .num { font-size: .55rem !important; letter-spacing: -0.02em; } }
+@media (max-width: 560px) { .board { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; } .tile { min-height: 64px; } .tile .num { font-size: .66rem; } .tok { width: 16px; height: 16px; margin: -8px 0 0 -8px; font-size: .52rem; line-height: 16px; } .acts { display: none; } }
+</style>
+
+<div class="app">
+  <header>
+    <h1>Following the Holdout</h1>
+    <div class="meta">A coordination game played by AI agents · real logs, GLM-5.2</div>
+  </header>
+  <main>
+    <section class="stage" id="stage" aria-label="Game board"></section>
+    <section class="narr" id="narr" aria-live="polite"></section>
+  </main>
+  <footer class="transport">
+    <div class="acts" id="acts"></div>
+    <div class="track" id="track" role="tablist" aria-label="Scenes"></div>
+    <div class="controls">
+      <button class="btn" id="prev" type="button" aria-label="Previous scene">◀ Back</button>
+      <button class="btn primary" id="play" type="button">Play</button>
+      <button class="btn" id="next" type="button" aria-label="Next scene">Next ▶</button>
+      <span class="count" id="count"></span>
+    </div>
+  </footer>
+</div>
+
+<script>
+const DATA = /*DATA*/null;
+const S = DATA.scenes, H = DATA.holder;
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let cur = 0, timer = null;
+
+// ---------- transport ----------
+function buildTrack() {
+  const acts = [];
+  S.forEach((s, i) => { if (!acts.length || acts[acts.length - 1].name !== s.act) acts.push({ name: s.act, n: 0 }); acts[acts.length - 1].n++; });
+  $("#acts").innerHTML = acts.map(a => `<div style="flex:${a.n} 1 0">${esc(a.name)}</div>`).join("");
+  $("#track").innerHTML = S.map((s, i) => `<button class="seg" role="tab" data-i="${i}" title="${esc(s.title)}" aria-label="Scene ${i + 1}: ${esc(s.title)}"><span></span></button>`).join("");
+  document.querySelectorAll(".seg").forEach(b => b.onclick = () => { stop(); go(+b.dataset.i); });
+}
+function go(i) {
+  cur = Math.max(0, Math.min(S.length - 1, i));
+  document.querySelectorAll(".seg").forEach((b, j) => { b.classList.toggle("on", j === cur); b.classList.toggle("done", j < cur); b.setAttribute("aria-selected", j === cur); });
+  $("#count").textContent = `${cur + 1} / ${S.length}`;
+  render(S[cur]);
+  if (location.hash.slice(1) !== S[cur].id) history.replaceState(null, "", "#" + S[cur].id);
+}
+function stop() { clearInterval(timer); timer = null; $("#play").textContent = "Play"; }
+function play() {
+  if (timer) return stop();
+  if (cur === S.length - 1) go(0);
+  $("#play").textContent = "Pause";
+  timer = setInterval(() => { if (cur >= S.length - 1) return stop(); go(cur + 1); }, 7000);
+}
+$("#prev").onclick = () => { stop(); go(cur - 1); };
+$("#next").onclick = () => { stop(); go(cur + 1); };
+$("#play").onclick = play;
+document.addEventListener("keydown", e => {
+  if (e.target.closest("button") && (e.key === " " || e.key === "Enter")) return;
+  if (e.key === "ArrowRight") { stop(); go(cur + 1); }
+  if (e.key === "ArrowLeft") { stop(); go(cur - 1); }
+  if (e.key === " ") { e.preventDefault(); play(); }
+});
+addEventListener("hashchange", () => { const i = S.findIndex(s => s.id === location.hash.slice(1)); if (i >= 0 && i !== cur) go(i); });
+
+// ---------- narration ----------
+function quoteHTML(q) {
+  const isH = q.agent === H;
+  return `<div class="quote"><div class="head"><span class="av" style="${isH ? "background:var(--holdout);color:#fff" : ""}">A${q.agent}</span>
+    Agent ${q.agent}'s private reasoning · picks <code>${esc(q.pick)}</code></div><blockquote>“${esc(q.text)}”</blockquote></div>`;
+}
+function renderNarr(s) {
+  let h = `<div class="act">${esc(s.act)}</div><h2>${esc(s.title)}</h2><p>${esc(s.body)}</p>`;
+  if (s.result) h += `<div class="result">✓ ${esc(s.result)}</div>`;
+  (s.quotes || []).forEach(q => h += quoteHTML(q));
+  if (s.note) h += `<div class="note">${esc(s.note)}</div>`;
+  if (s.links) h += `<div class="links">${s.links.map(l => `<a href="${esc(l.href)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join(" · ")}</div>`;
+  $("#narr").innerHTML = h;
+}
+
+// ---------- stage: board + tokens ----------
+const fmtNum = x => esc(x).replace(/ × 10\^(-?\d+)/, "×10<sup>$1</sup>");
+let boardKey = null;
+function ensureBoard(items) {
+  const key = items.join("|");
+  if (boardKey === key && $("#stage .board")) return;
+  boardKey = key;
+  $("#stage").innerHTML = `<div class="board">${items.map(x => `<div class="tile" data-v="${esc(x)}"><div class="num">${fmtNum(x)}</div></div>`).join("")}</div>
+    <div class="tokens">${Array.from({ length: 10 }, (_, k) => `<div class="tok off" id="t${k + 1}">${k + 1}</div>`).join("")}</div>
+    <div class="legend"><span><i style="background:var(--agent)"></i>AI agent (GLM-5.2)</span>
+      <span id="lg-h" hidden><i style="background:var(--holdout)"></i>Agent ${H}: scripted holdout</span>
+      <span><i style="background:transparent;box-shadow:inset 0 0 0 2px var(--consensus);border-radius:3px"></i>consensus</span></div>`;
+}
+function placeTokens(s) {
+  const stage = $("#stage"), sb = stage.getBoundingClientRect();
+  const tiles = [...stage.querySelectorAll(".tile")];
+  const byVal = Object.fromEntries(tiles.map(t => [t.dataset.v, t]));
+  const occ = {};
+  const speakers = new Set((s.quotes || []).map(q => q.agent));
+  for (let a = 1; a <= 10; a++) {
+    const el = $("#t" + a), v = s.picks ? s.picks[a] : null, t = v != null ? byVal[v] : null;
+    el.classList.toggle("holdout", s.holder === a);
+    el.classList.toggle("speak", speakers.has(a));
+    if (!t) { el.classList.add("off"); continue; }
+    const r = t.getBoundingClientRect(), k = (occ[v] = (occ[v] || 0) + 1) - 1;
+    const tw = el.offsetWidth, cols = Math.max(2, Math.floor((r.width - 4) / (tw * 0.78))), cell = Math.min((r.width - 4) / cols, tw + 3);
+    const rowsN = Math.ceil(10 / cols), row = Math.floor(k / cols);
+    const x = r.left - sb.left + r.width / 2 + ((k % cols) - (cols - 1) / 2) * cell;
+    const y = r.top - sb.top + r.height - tw / 2 - 4 - (Math.min(rowsN, 3) - 1 - Math.min(row, 2)) * tw * 0.72;
+    el.style.transform = `translate(${x}px, ${y}px)`;
+    el.classList.remove("off");
+  }
+  tiles.forEach(t => {
+    const v = t.dataset.v, n = occ[v] || 0;
+    t.classList.toggle("won", n === 10);
+    t.classList.toggle("hot", s.holder != null && s.picks && s.picks[s.holder] === v && n < 10);
+    t.classList.toggle("mark", (s.highlight || []).includes(v) || n > 0);
+  });
+  const lg = $("#lg-h"); if (lg) lg.hidden = !s.holder;
+}
+function renderStage(s) {
+  if (s.board) {
+    ensureBoard(s.board);
+    requestAnimationFrame(() => placeTokens(s));
+    return;
+  }
+  boardKey = null;
+  let h = "";
+  if (s.series) h = seriesSVG(s.series, s.control_series);
+  else if (s.votes) h = ballot(s);
+  else if (s.stats) h = `<div class="alt"><div class="note">${esc(s.stats_caption)}</div>${s.stats.map(x => `<div class="statrow"><span>${esc(x.label)}</span><b>${esc(x.value)}</b></div>`).join("")}</div>`;
+  if (s.messages) h += `<div class="alt" style="margin-top:${h ? 16 : 0}px">${s.messages.map(m => `<div class="msg"><div class="av">A${m.agent}</div><div><div class="who">Agent ${m.agent}${m.model ? " · " + esc(m.model) : ""} · public message</div><div class="bubble">${esc(m.text)}</div></div></div>`).join("")}</div>`;
+  if (!h) h = `<div class="alt"><p class="note">Explore the full transcripts in the repo's results viewer.</p></div>`;
+  $("#stage").innerHTML = h;
+}
+function seriesSVG(a, b) {
+  const W = 520, Hh = 250, L = 40, R = 12, T = 18, B = 34, max = 15, x = i => L + (i + 0.5) * (W - L - R) / a.length, y = v => T + (Hh - T - B) * (1 - v / max), bw = (W - L - R) / a.length * 0.32;
+  let s = `<svg class="bars" viewBox="0 0 ${W} ${Hh}" role="img" aria-label="Rounds to consensus per game, with and without the holdout">`;
+  [0, 5, 10, 15].forEach(v => s += `<line x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L - 6}" y="${y(v) + 4}" text-anchor="end">${v}</text>`);
+  a.forEach((v, i) => {
+    s += `<rect x="${x(i) - bw - 1}" y="${y(v)}" width="${bw}" height="${y(0) - y(v)}" rx="2" fill="var(--holdout)"/>`;
+    if (b) s += `<rect x="${x(i) + 1}" y="${y(b[i])}" width="${bw}" height="${y(0) - y(b[i])}" rx="2" fill="var(--agent)" opacity=".55"/>`;
+    s += `<text x="${x(i)}" y="${Hh - B + 16}" text-anchor="middle">${i + 1}</text>`;
+  });
+  s += `<text x="${(L + W - R) / 2}" y="${Hh - 4}" text-anchor="middle">game</text><text class="lbl" x="${L}" y="12">Rounds to consensus</text></svg>
+    <div class="legend"><span><i style="background:var(--holdout);border-radius:2px"></i>with the holdout</span><span><i style="background:var(--agent);opacity:.55;border-radius:2px"></i>without (control)</span></div>`;
+  return s;
+}
+function ballot(s) {
+  let h = `<div class="ballot">`;
+  for (let a = 1; a <= 10; a++) {
+    const v = s.votes[a];
+    h += `<div class="voter ${a === s.holder ? "holdout" : ""}"><div class="av">A${a}</div><div>${a === s.holder ? "silent" : `votes <span class="arrow">A${v}</span>`}</div></div>`;
+  }
+  return h + `</div>`;
+}
+function render(s) { renderNarr(s); renderStage(s); }
+
+// Re-place tokens whenever the board's layout settles or changes (web fonts loading, resizing, theme changes).
+const relayout = () => { if (S[cur].board && document.querySelector("#stage .board")) placeTokens(S[cur]); };
+addEventListener("resize", relayout);
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(relayout);
+if (window.ResizeObserver) new ResizeObserver(relayout).observe(document.getElementById("stage"));
+buildTrack();
+go(Math.max(0, S.findIndex(s => s.id === location.hash.slice(1))));
+</script>
