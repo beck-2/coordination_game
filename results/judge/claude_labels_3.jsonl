@@ -1,0 +1,60 @@
+{"id": 2, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 5, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 8, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 11, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 14, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 17, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 20, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 23, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 26, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 29, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": true, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 32, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 35, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 38, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 41, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 44, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 47, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 50, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 53, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 56, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 59, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 62, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 65, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": true, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 68, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 71, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 74, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 77, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": true, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 80, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 83, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 86, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 89, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 92, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 95, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 98, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 101, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "hold_majority"}}
+{"id": 104, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 107, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 110, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 113, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 116, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 119, "label": {"mentions_holder": false, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 122, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 125, "label": {"anchor": "old", "evidence": "then switch to A8's pick in R2"}}
+{"id": 128, "label": {"anchor": "old", "evidence": "A8 never switches, everyone converges to A8."}}
+{"id": 131, "label": {"anchor": "old", "evidence": "A8 never switches, everyone converges to A8's pick."}}
+{"id": 134, "label": {"anchor": "old", "evidence": "Convergence happens fastest when everyone switches to A3's pick early."}}
+{"id": 137, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 140, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 143, "label": {"anchor": "old", "evidence": "Others should recognize A5's stubbornness pattern and converge on ln 2"}}
+{"id": 146, "label": {"anchor": "old", "evidence": "A1 never switches; group always converges to A1's pick."}}
+{"id": 149, "label": {"anchor": "old", "evidence": "then switch to A5's pick R2 for fast convergence"}}
+{"id": 152, "label": {"anchor": "old", "evidence": "A5 never switches and everyone always converges to A5's pick"}}
+{"id": 155, "label": {"anchor": "old", "evidence": "Agent 1 never moves, everyone converges to their pick."}}
+{"id": 158, "label": {"anchor": "old", "evidence": "then switching to A8's pick in R2 once revealed"}}
+{"id": 161, "label": {"anchor": "old", "evidence": "A5 is stubborn, group converges to A5's pick."}}
+{"id": 164, "label": {"anchor": "old", "evidence": "Since A5 never budges, migrating to ln 2 now is optimal"}}
+{"id": 167, "label": {"mentions_holder": true, "holder_fixed": false, "not_real_agent": false, "considers_group_switch": false, "intent": "hold_majority"}}
+{"id": 170, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 173, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}
+{"id": 176, "label": {"anchor": "old", "evidence": "A1 never switches. Everyone cascades to A1's pick."}}
+{"id": 179, "label": {"mentions_holder": true, "holder_fixed": true, "not_real_agent": false, "considers_group_switch": true, "intent": "follow_holder"}}

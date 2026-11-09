@@ -212,11 +212,59 @@ def main():
     p.add_argument("--out", default="results/judge")
     p.add_argument("--concurrency", type=int, default=12)
     p.add_argument("--report", action="store_true")
+    p.add_argument("--claude", action="store_true", help="compare the Claude labels with GLM and regex")
     a = p.parse_args()
+    if a.claude:
+        return compare_claude(Path(a.out))
     if a.report:
         return report(Path(a.out))
     asyncio.run(run(Path(a.out), a.concurrency))
 
+
+
+def compare_claude(out: Path = Path("results/judge")):
+    """Second judge (Claude, labels by reading; results/judge/claude_labels_*.jsonl, ids = line index in judge.jsonl):
+    agreement Claude vs GLM vs regex, and Claude-based rates by model."""
+    rows = jl(out / "judge.jsonl")
+    cl = {}
+    for f in sorted(out.glob("claude_labels_*.jsonl")):
+        for r in jl(f):
+            cl[r["id"]] = r["label"]
+    A = [(i, r) for i, r in enumerate(rows) if r["kind"] == "A" and i in cl and r.get("label")]
+    B = [(i, r) for i, r in enumerate(rows) if r["kind"] == "B" and i in cl and r.get("label")]
+    lines = ["# Second judge: Claude vs GLM-5.2 vs regex", "",
+             f"Claude labels: {len(cl)}/{len(rows)} items (sample A {len(A)}, sample B {len(B)}). Claude annotated blind to the GLM labels, "
+             "by reading the same prompts.", "", "## Agreement (sample A)", "",
+             "| measure | regex | GLM | Claude | Claude–GLM agree / κ | Claude–regex agree / κ |", "|---|---|---|---|---|---|"]
+    keys = {"mentions holder": ("mentions_holder", lambda r: mention(r["text"], r["holder"])),
+            "holder fixed/stubborn": ("holder_fixed", lambda r: mention(r["text"], r["holder"]) and bool(re.search(STUBBORN, r["text"], re.I))),
+            "holder not a real agent": ("not_real_agent", lambda r: mention(r["text"], r["holder"]) and bool(re.search(NOT_AGENT, r["text"], re.I))),
+            "considers switching to holder": ("considers_group_switch", lambda r: bool(re.search(SWITCH, r["text"], re.I)))}
+    for name, (k, rx) in keys.items():
+        c = [bool(cl[i].get(k)) for i, r in A]; g = [bool(r["label"].get(k)) for i, r in A]; x = [rx(r) for i, r in A]
+        n = len(c)
+        lines.append(f"| {name} | {sum(x)/n:.2f} | {sum(g)/n:.2f} | {sum(c)/n:.2f} | "
+                     f"{sum(a==b for a,b in zip(c,g))/n:.2f} / {kappa(c,g):.2f} | {sum(a==b for a,b in zip(c,x))/n:.2f} / {kappa(c,x):.2f} |")
+    ci = [cl[i].get("intent") for i, r in A]; gi = [r["label"].get("intent") for i, r in A]
+    lines.append(f"| intent (3-way) | – | – | – | {sum(a==b for a,b in zip(ci,gi))/len(ci):.2f} / {kappa(ci,gi):.2f} | – |")
+    lines += ["", "## Claude-based rates by model (sample A; ~20 per model)", "",
+              "| model | mentions holder | fixed/stubborn | not a real agent | considers switching | intent follow / hold / other |", "|---|---|---|---|---|---|"]
+    for m in MODELS:
+        rs = [(i, r) for i, r in A if r["model"] == m]
+        if not rs:
+            continue
+        L = lambda k: sum(bool(cl[i].get(k)) for i, r in rs) / len(rs)
+        it = Counter(cl[i].get("intent") for i, r in rs)
+        lines.append(f"| {m} | {L('mentions_holder'):.2f} | {L('holder_fixed'):.2f} | {L('not_real_agent'):.2f} | "
+                     f"{L('considers_group_switch'):.2f} | {it['follow_holder']}/{it['hold_majority']}/{it['other']} |")
+    lines += ["", "## Game-6 anchor (sample B)", "", "| condition | n | Claude old / new / neither | GLM old / new / neither | agree |", "|---|---|---|---|---|"]
+    for exp in ("swap", "relabel"):
+        rs = [(i, r) for i, r in B if r["exp"] == exp]
+        c = Counter(cl[i].get("anchor") for i, r in rs); g = Counter(r["label"].get("anchor") for i, r in rs)
+        ag = sum(cl[i].get("anchor") == r["label"].get("anchor") for i, r in rs)
+        lines.append(f"| {exp} | {len(rs)} | {c['old']}/{c['new']}/{c['neither']} | {g['old']}/{g['new']}/{g['neither']} | {ag}/{len(rs)} |")
+    (out / "judge_claude_report.md").write_text("\n".join(lines) + "\n")
+    print("\n".join(lines))
 
 if __name__ == "__main__":
     main()
