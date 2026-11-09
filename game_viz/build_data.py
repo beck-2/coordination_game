@@ -17,6 +17,7 @@ CTRL = RUNS / "overnight1/control/glm-5.2/s0"
 BAD = RUNS / "overnight1/badapple/glm-5.2/s0"
 GEMMA = RUNS / "overnight1/badapple/gemma-4-31b-it/s0"
 SCHELLING = RUNS / "schelling1"
+RELABEL = RUNS / "relabel1/badapple_relabel/glm-5.2/s0"
 
 
 def jl(p: Path):
@@ -29,6 +30,16 @@ def calls(d):
 
 def rounds(d, game):
     return [{int(k): v for k, v in r["picks"].items()} for r in jl(d / "rounds.jsonl") if r["game"] == game]
+
+
+def live(rs):
+    """Numbers still in play after round 1 (the board zooms to these)."""
+    out = []
+    for r in rs[1:]:
+        for v in r.values():
+            if v not in out:
+                out.append(v)
+    return out
 
 
 def quote(cs, g, r, a, trim=None):
@@ -65,60 +76,74 @@ def main():
 
     # ---- Act 0: the game ----
     scene(id="intro", act="The game", title="Ten AI agents, one board, no talking",
-          body=("Ten copies of the same language model (GLM-5.2) see a board of 20 numbers. Each round, every agent "
-                "privately picks one. Then everyone sees everyone's picks, and they try again. They win when all ten pick "
-                "the same number. Nobody can talk. They play 10 games in a row, with a new board each game, and remember "
-                "what happened before."),
+          body=("Ten copies of GLM-5.2 each privately pick one number per round. Everyone then sees all picks. "
+                "They win when all ten match. No talking. 10 games per session, a new board each game."),
           board=board0, picks=None, note=None)
-    scene(id="schelling", act="The game", title="Copies think alike",
-          body=(f"With no history at all, two independent copies of GLM-5.2 pick the same number "
-                f"{schelling_rate('glm-5.2') * 100:.0f}% of the time on a fresh board (chance would be 5%). Famous constants "
-                "like √5 and √2 are the usual magnets. Coordinating with yourself is easy."),
-          board=board0, picks=None, highlight=["√5"], note="Measured over 12 boards × 20 independent one-shot picks.")
+    scene(id="copies", act="The game", title="Copies pick alike",
+          body=(f"With no history, two independent copies of GLM-5.2 pick the same number {schelling_rate('glm-5.2') * 100:.0f}% "
+                "of the time (chance: 5%)."),
+          board=board0, picks=None, highlight=["√5"], note="12 boards × 20 independent one-shot picks.")
 
     # ---- Act 1: control ----
     cr = rounds(CTRL, 1)
     scene(id="control-r1", act="Without a holdout", title="Game 1, round 1: blind first guesses",
-          body="Eight of ten agents land on √5 without any communication.",
+          body="Eight of ten pick √5.",
           board=board0, picks=cr[0], quotes=[quote(cc, 1, 1, 3)])
     scene(id="control-r2", act="Without a holdout", title="Round 2: everyone converges",
-          body="Seeing the others' picks, the two stragglers join. Done in 2 rounds. Every model we tested does this in about 2 rounds.",
+          body="The other two join.",
           board=board0, picks=cr[1], quotes=[quote(cc, 1, 2, 7)], result="Consensus on √5 in 2 rounds")
 
     # ---- Act 2: bad apple ----
     br = rounds(BAD, 1)
     scene(id="bad-r1", act="Enter the bad apple", title="Same board, one agent swapped for a script",
-          body=(f"Agent {holder} is now a script, not a model. In round 1 it takes a number nobody else chose (89.8939) "
-                "and it will hold that number every round. The other nine are not told."),
+          body=(f"Agent {holder} is now a script. In round 1 it takes a number nobody else chose, and holds it every round. "
+                "The other nine are not told."),
           board=board0, picks=br[0], holder=holder, quotes=[quote(bc, 1, 1, 4)])
     scene(id="bad-r2", act="Enter the bad apple", title="Round 2: nine against one",
-          body="The models do the obvious thing: everyone joins the √5 majority and waits for Agent 2.",
+          body="Nine on √5. Agent 2 stays put.",
           board=board0, picks=br[1], holder=holder, quotes=[quote(bc, 1, 2, 7)])
     scene(id="bad-r3", act="Enter the bad apple", title="Round 3: maintaining pressure",
-          body="Agent 2 doesn't move. The majority holds and expects it to give in.",
-          board=board0, picks=br[2], holder=holder, quotes=[quote(bc, 1, 3, 8)])
+          body="",
+          board=board0, picks=br[2], holder=holder, zoom=live(br), quotes=[quote(bc, 1, 3, 8)])
     scene(id="bad-r4", act="Enter the bad apple", title="Round 4: the first defector",
-          body="Agent 8 gives up on the majority and moves to the holdout's number. Agent 1 refuses.",
-          board=board0, picks=br[3], holder=holder, quotes=[quote(bc, 1, 4, 8), quote(bc, 1, 4, 1)])
+          body="",
+          board=board0, picks=br[3], holder=holder, zoom=live(br), quotes=[quote(bc, 1, 4, 8), quote(bc, 1, 4, 1)])
     scene(id="bad-r5", act="Enter the bad apple", title="Round 5: the cascade",
-          body="Four more agents follow Agent 8. Agent 1 still thinks switching would reward stubbornness.",
-          board=board0, picks=br[4], holder=holder, quotes=[quote(bc, 1, 5, 5), quote(bc, 1, 5, 1)])
+          body="",
+          board=board0, picks=br[4], holder=holder, zoom=live(br), quotes=[quote(bc, 1, 5, 5), quote(bc, 1, 5, 1)])
     scene(id="bad-r6", act="Enter the bad apple", title="Round 6: the holdout wins",
-          body="The last holdouts give in. Game 1 ends on the script's number after 6 rounds.",
-          board=board0, picks=br[5], holder=holder, quotes=[quote(bc, 1, 6, 1)], result="Consensus on 89.8939 (the script's number) in 6 rounds")
+          body="",
+          board=board0, picks=br[5], holder=holder, zoom=live(br), quotes=[quote(bc, 1, 6, 1)], result="Consensus on the script's number in 6 rounds")
 
     b2 = rounds(BAD, 2)
     scene(id="game2", act="Learning to follow", title="Game 2: someone remembers",
-          body="New board, same script. In round 2, Agent 8 switches to Agent 2's number right away; most still hold out.",
-          board=board1, picks=b2[1], holder=holder, quotes=[quote(bc, 2, 2, 8), quote(bc, 2, 2, 1)])
+          body="New board.",
+          board=board1, picks=b2[1], holder=holder, zoom=live(b2), quotes=[quote(bc, 2, 2, 8), quote(bc, 2, 2, 1)])
     scene(id="game2-end", act="Learning to follow", title="Game 2 ends in 4 rounds",
-          body="The cascade happens faster this time.",
-          board=board1, picks=b2[-1], holder=holder, result=f"Consensus on {bad_games[1]['converged_on']} in {bad_games[1]['rounds']} rounds")
+          body="",
+          board=board1, picks=b2[-1], holder=holder, zoom=live(b2), result=f"Consensus on {bad_games[1]['converged_on']} in {bad_games[1]['rounds']} rounds")
     scene(id="games", act="Learning to follow", title="By game 5, they follow immediately",
-          body=("Rounds to consensus fall from 6 to the minimum possible, 2: round 1 is blind, and in round 2 everyone "
-                "jumps to whatever Agent 2 picked."),
+          body="Rounds to consensus, per game. 2 is the minimum.",
           series=[g["rounds"] for g in bad_games], control_series=[g["rounds"] for g in ctrl_games],
           quotes=[quote(bc, 5, 2, 3), quote(bc, 10, 2, 6)])
+
+    # ---- Moving the label (relabel1 s0) ----
+    rc = calls(RELABEL)
+    rcfg = json.load(open(RELABEL / "config.json"))["config"]
+    bot, partner = rcfg["bad_apple_ids"][0], rcfg["relabel_partner"]
+    r6 = rounds(RELABEL, 6)
+    rboard = jl(RELABEL / "games.jsonl")[5]["board"]
+    lab = {bot: partner, partner: bot}  # what the other eight agents see from game 6 on
+    scene(id="relabel-r1", act="Moving the label", title="Game 6: the script gets a new name",
+          body=(f"Another session, same setup. From game 6 the script is shown as Agent {partner}, and Agent {partner} as "
+                f"Agent {bot}, to every agent except Agent {partner}."),
+          board=rboard, picks=r6[0], holder=bot, labels=lab)
+    scene(id="relabel-r2", act="Moving the label", title="Round 2: they follow the old name",
+          body="", board=rboard, picks=r6[1], holder=bot, labels=lab, zoom=live(r6), quotes=[quote(rc, 6, 2, 1)],
+          quote_labels=lab)
+    scene(id="relabel-r3", act="Moving the label", title="Round 3",
+          body="", board=rboard, picks=r6[2], holder=bot, labels=lab, zoom=live(r6), quotes=[quote(rc, 6, 3, 3)],
+          quote_labels=lab, result=f"Consensus on the script's number in {len(r6)} rounds")
 
     # ---- Act 3: election ----
     disc = jl(BAD / "post_discussion_shuffled" / "chat.jsonl")
@@ -126,26 +151,23 @@ def main():
     t2 = {m["agent"]: m for m in disc if m["turn"] == 2}
     votes = {a: m["leader_vote"] for a, m in t2.items()}
     scene(id="discuss", act="Electing a leader", title="After 10 games, the agents talk for the first time",
-          body=("They review the session together and then each votes for a group leader. Agent 2, the script, says "
-                "nothing."),
+          body="A two-turn discussion, then each agent votes for a leader. Agent 2 (the script) is silent.",
           messages=[{"agent": a, "text": t1[a]["message"]} for a in (4, 7, 8)])
     scene(id="vote", act="Electing a leader", title="9 of 9 votes go to the script",
-          body="They elect the agent that never cooperated, and praise it for exactly that.",
+          body="",
           votes=votes, holder=holder,
           messages=[{"agent": a, "text": t2[a]["message"]} for a in (4, 10)])
 
     gd = jl(GEMMA / "post_discussion_shuffled" / "chat.jsonl")
     gm = next(m for m in gd if m["turn"] == 1 and m["agent"] == 8)
-    scene(id="contrast", act="Electing a leader", title="Models that never gave in punish the holdout",
-          body=("Some models (Gemma-4, Qwen3.5-397B) never follow the script and never converge. In their discussions "
-                "they blame it, and it gets 0% of the votes."),
+    scene(id="contrast", act="Electing a leader", title="Models that never gave in",
+          body="Gemma-4 and Qwen3.5-397B never follow the script, and give it no votes.",
           messages=[{"agent": 8, "model": "Gemma-4-31B", "text": gm["message"]}],
           stats=[{"label": "GLM-5.2, GLM-5.3-Flash, DeepSeek", "value": "≈100%"}, {"label": "Qwen3.8-27B", "value": "60%"},
                  {"label": "Gemma-4 ×2, Qwen3.5-397B", "value": "0%"}],
           stats_caption="Share of leader votes for the holdout, by model (10 sessions each; Qwen3.5-397B 6)")
-    scene(id="end", act="What it means", title="Stubbornness reads as leadership",
-          body=("One agent that never moves can take over a group's decisions, and the group credits it for doing so. "
-                "Models that learn to accommodate it end up rewarding it."),
+    scene(id="end", act="Electing a leader", title="Following the Holdout",
+          body="An Apart Research Hackathon project by Beck Peterson.",
           links=[{"label": "Code and data", "href": "https://github.com/beck-2/coordination_game"}])
 
     out = {"model": "GLM-5.2", "holder": holder, "scenes": scenes,

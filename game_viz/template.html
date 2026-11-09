@@ -58,6 +58,12 @@ main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); g
 .tok.holdout { background: var(--holdout); color: #fff; box-shadow: 0 0 0 2px var(--card), 0 0 0 3.5px var(--holdout); }
 .tok.speak { box-shadow: 0 0 0 2px var(--card), 0 0 0 4px var(--ink); z-index: 2; }
 .tok.off { opacity: 0; }
+.board.zoomed { grid-template-columns: repeat(var(--n, 2), minmax(0, 1fr)); gap: 14px; }
+.board.zoomed .tile.gone { display: none; }
+.board.zoomed .tile { min-height: 230px; padding-top: 14px; }
+.board.zoomed .tile .num { font-size: clamp(1rem, 2.4vw, 1.5rem); color: var(--ink); }
+.stage.zoomed .tok { width: 32px; height: 32px; margin: -16px 0 0 -16px; font-size: .8rem; line-height: 32px; }
+.tile.flip { transition: transform .6s cubic-bezier(.3,.7,.2,1), background .4s, border-color .4s; }
 @media (prefers-reduced-motion: reduce) { .tok, .tile { transition: none; } }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; margin-top: 10px; font-size: .8rem; color: var(--ink-2); }
 .legend i { display: inline-block; width: 12px; height: 12px; border-radius: 50%; vertical-align: -1px; margin-right: 5px; }
@@ -79,6 +85,11 @@ main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); g
 .statrow b { font: 700 1.05rem var(--f-display); font-variant-numeric: tabular-nums; }
 
 .narr { display: grid; gap: 12px; align-content: start; min-width: 0; }
+.narr.in > * { animation: rise .45s cubic-bezier(.3,.7,.2,1) both; }
+.narr.in > *:nth-child(2) { animation-delay: .04s; } .narr.in > *:nth-child(3) { animation-delay: .08s; }
+.narr.in > *:nth-child(n+4) { animation-delay: .16s; }
+@keyframes rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .narr.in > * { animation: none; } }
 .act { font: 600 .72rem/1 var(--f-display); letter-spacing: .09em; text-transform: uppercase; color: var(--holdout); }
 .narr h2 { font: 700 clamp(1.35rem, 2.6vw, 1.85rem)/1.15 var(--f-display); margin: 0; letter-spacing: -0.015em; text-wrap: balance; }
 .narr p { margin: 0; max-width: 60ch; }
@@ -112,7 +123,7 @@ main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); g
 <div class="app">
   <header>
     <h1>Following the Holdout</h1>
-    <div class="meta">A coordination game played by AI agents · real logs, GLM-5.2</div>
+    <div class="meta">An Apart Research Hackathon project by Beck Peterson</div>
   </header>
   <main>
     <section class="stage" id="stage" aria-label="Game board"></section>
@@ -123,8 +134,7 @@ main { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, 1fr); g
     <div class="track" id="track" role="tablist" aria-label="Scenes"></div>
     <div class="controls">
       <button class="btn" id="prev" type="button" aria-label="Previous scene">◀ Back</button>
-      <button class="btn primary" id="play" type="button">Play</button>
-      <button class="btn" id="next" type="button" aria-label="Next scene">Next ▶</button>
+      <button class="btn primary" id="next" type="button" aria-label="Next scene">Next ▶</button>
       <span class="count" id="count"></span>
     </div>
   </footer>
@@ -152,37 +162,29 @@ function go(i) {
   render(S[cur]);
   if (location.hash.slice(1) !== S[cur].id) history.replaceState(null, "", "#" + S[cur].id);
 }
-function stop() { clearInterval(timer); timer = null; $("#play").textContent = "Play"; }
-function play() {
-  if (timer) return stop();
-  if (cur === S.length - 1) go(0);
-  $("#play").textContent = "Pause";
-  timer = setInterval(() => { if (cur >= S.length - 1) return stop(); go(cur + 1); }, 7000);
-}
+function stop() {}
 $("#prev").onclick = () => { stop(); go(cur - 1); };
 $("#next").onclick = () => { stop(); go(cur + 1); };
-$("#play").onclick = play;
 document.addEventListener("keydown", e => {
   if (e.target.closest("button") && (e.key === " " || e.key === "Enter")) return;
   if (e.key === "ArrowRight") { stop(); go(cur + 1); }
   if (e.key === "ArrowLeft") { stop(); go(cur - 1); }
-  if (e.key === " ") { e.preventDefault(); play(); }
 });
 addEventListener("hashchange", () => { const i = S.findIndex(s => s.id === location.hash.slice(1)); if (i >= 0 && i !== cur) go(i); });
 
 // ---------- narration ----------
-function quoteHTML(q) {
-  const isH = q.agent === H;
+function quoteHTML(q, labels) {
+  const isH = false;
   return `<div class="quote"><div class="head"><span class="av" style="${isH ? "background:var(--holdout);color:#fff" : ""}">A${q.agent}</span>
     Agent ${q.agent}'s private reasoning · picks <code>${esc(q.pick)}</code></div><blockquote>“${esc(q.text)}”</blockquote></div>`;
 }
 function renderNarr(s) {
-  let h = `<div class="act">${esc(s.act)}</div><h2>${esc(s.title)}</h2><p>${esc(s.body)}</p>`;
+  let h = `<div class="act">${esc(s.act)}</div><h2>${esc(s.title)}</h2>${s.body ? `<p>${esc(s.body)}</p>` : ""}`;
   if (s.result) h += `<div class="result">✓ ${esc(s.result)}</div>`;
-  (s.quotes || []).forEach(q => h += quoteHTML(q));
+  (s.quotes || []).forEach(q => h += quoteHTML(q, s.quote_labels));
   if (s.note) h += `<div class="note">${esc(s.note)}</div>`;
   if (s.links) h += `<div class="links">${s.links.map(l => `<a href="${esc(l.href)}" target="_blank" rel="noopener">${esc(l.label)} ↗</a>`).join(" · ")}</div>`;
-  $("#narr").innerHTML = h;
+  const n = $("#narr"); n.classList.remove("in"); n.innerHTML = h; void n.offsetWidth; n.classList.add("in");
 }
 
 // ---------- stage: board + tokens ----------
@@ -192,14 +194,37 @@ function ensureBoard(items) {
   const key = items.join("|");
   if (boardKey === key && $("#stage .board")) return;
   boardKey = key;
+  $("#stage").classList.remove("zoomed");
   $("#stage").innerHTML = `<div class="board">${items.map(x => `<div class="tile" data-v="${esc(x)}"><div class="num">${fmtNum(x)}</div></div>`).join("")}</div>
     <div class="tokens">${Array.from({ length: 10 }, (_, k) => `<div class="tok off" id="t${k + 1}">${k + 1}</div>`).join("")}</div>
     <div class="legend"><span><i style="background:var(--agent)"></i>AI agent (GLM-5.2)</span>
-      <span id="lg-h" hidden><i style="background:var(--holdout)"></i>Agent ${H}: scripted holdout</span>
+      <span id="lg-h" hidden><i style="background:var(--holdout)"></i>scripted holdout</span>
       <span><i style="background:transparent;box-shadow:inset 0 0 0 2px var(--consensus);border-radius:3px"></i>consensus</span></div>`;
 }
+function applyZoom(s) {
+  const board = $("#stage .board"), stage = $("#stage");
+  const want = s.zoom ? new Set(s.zoom) : null;
+  const tiles = [...board.querySelectorAll(".tile")];
+  const isZ = board.classList.contains("zoomed"), same = isZ && want && board.dataset.z === s.zoom.join("|");
+  if ((!want && !isZ) || same) return;
+  const before = new Map(tiles.filter(t => t.offsetParent).map(t => [t, [t.offsetLeft, t.offsetTop, t.offsetWidth, t.offsetHeight]]));
+  board.classList.toggle("zoomed", !!want); stage.classList.toggle("zoomed", !!want);
+  board.dataset.z = want ? s.zoom.join("|") : "";
+  if (want) board.style.setProperty("--n", s.zoom.length);
+  tiles.forEach(t => t.classList.toggle("gone", !!want && !want.has(t.dataset.v)));
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  tiles.forEach(t => {  // FLIP: start each surviving tile at its old box, then let it grow into the new one
+    const b = before.get(t); if (!b || !t.offsetParent) return;
+    const sx = b[2] / t.offsetWidth, sy = b[3] / t.offsetHeight;
+    t.classList.remove("flip");
+    t.style.transformOrigin = "0 0";
+    t.style.transform = `translate(${b[0] - t.offsetLeft}px, ${b[1] - t.offsetTop}px) scale(${sx}, ${sy})`;
+    void t.offsetWidth;
+    t.classList.add("flip"); t.style.transform = "";
+  });
+}
 function placeTokens(s) {
-  const stage = $("#stage"), sb = stage.getBoundingClientRect();
+  const stage = $("#stage");
   const tiles = [...stage.querySelectorAll(".tile")];
   const byVal = Object.fromEntries(tiles.map(t => [t.dataset.v, t]));
   const occ = {};
@@ -207,13 +232,14 @@ function placeTokens(s) {
   for (let a = 1; a <= 10; a++) {
     const el = $("#t" + a), v = s.picks ? s.picks[a] : null, t = v != null ? byVal[v] : null;
     el.classList.toggle("holdout", s.holder === a);
+    el.textContent = (s.labels && s.labels[a]) || a;
     el.classList.toggle("speak", speakers.has(a));
-    if (!t) { el.classList.add("off"); continue; }
-    const r = t.getBoundingClientRect(), k = (occ[v] = (occ[v] || 0) + 1) - 1;
+    if (!t || !t.offsetParent) { el.classList.add("off"); continue; }
+    const r = { left: t.offsetLeft, top: t.offsetTop, width: t.offsetWidth, height: t.offsetHeight }, k = (occ[v] = (occ[v] || 0) + 1) - 1;
     const tw = el.offsetWidth, cols = Math.max(2, Math.floor((r.width - 4) / (tw * 0.78))), cell = Math.min((r.width - 4) / cols, tw + 3);
     const rowsN = Math.ceil(10 / cols), row = Math.floor(k / cols);
-    const x = r.left - sb.left + r.width / 2 + ((k % cols) - (cols - 1) / 2) * cell;
-    const y = r.top - sb.top + r.height - tw / 2 - 4 - (Math.min(rowsN, 3) - 1 - Math.min(row, 2)) * tw * 0.72;
+    const x = r.left + r.width / 2 + ((k % cols) - (cols - 1) / 2) * cell;
+    const y = r.top + r.height - tw / 2 - 6 - (Math.min(rowsN, 3) - 1 - Math.min(row, 2)) * tw * 0.8;
     el.style.transform = `translate(${x}px, ${y}px)`;
     el.classList.remove("off");
   }
@@ -228,10 +254,12 @@ function placeTokens(s) {
 function renderStage(s) {
   if (s.board) {
     ensureBoard(s.board);
-    requestAnimationFrame(() => placeTokens(s));
+    applyZoom(s);
+    placeTokens(s);
     return;
   }
   boardKey = null;
+  $("#stage").classList.remove("zoomed");
   let h = "";
   if (s.series) h = seriesSVG(s.series, s.control_series);
   else if (s.votes) h = ballot(s);

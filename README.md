@@ -27,4 +27,4 @@ over, then the agents electing it leader, with quotes from the agents' own reaso
 - Rebuild after changing the story or the data: `python game_viz/build_data.py` (needs `runs/`). It reads the logs, writes
   `game_viz/data.json`, and inlines it into `game_viz/index.html` (full page) and `game_viz/artifact.html` (artifact fragment).
   Edit the page itself in `game_viz/template.html`; which moments are quoted is chosen in `build_data.py`.
-- Keys: ← / → step through scenes, space plays and pauses. Each scene has its own link (`#bad-r4`, `#vote`, …).
+- Keys: ← / → step through scenes. Each scene has its own link (`#bad-r4`, `#relabel-r2`, `#vote`, …).
