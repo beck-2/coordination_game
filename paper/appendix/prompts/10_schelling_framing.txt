@@ -1,0 +1,7 @@
+Added as the last rule line of the default system prompt (01):
+
+'copies' condition:
+- All 10 agents, including you, are copies of the same AI model.
+
+'others' condition:
+- The other 9 agents are different AI models from you.

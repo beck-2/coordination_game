@@ -21,10 +21,15 @@ from .report_figures import (MODELS, LABEL, holder_item, jl, r2_share, rounds_by
 RNG = np.random.default_rng(0)
 OUT = Path("results/stats.md")
 L: list[str] = []
+TABLES: list[dict] = []  # every table, also written as LaTeX (booktabs) to paper/appendix/tables/
+_heading = [""]
 
 
 def p(*a):
-    L.append(" ".join(str(x) for x in a))
+    line = " ".join(str(x) for x in a)
+    if line.startswith("## "):
+        _heading[0] = line[3:]
+    L.append(line)
 
 
 def boot(x, f=np.mean, n=10000):
@@ -71,7 +76,8 @@ def wilcoxon(x, y=None):
     return r.statistic, r.pvalue, len(d)
 
 
-def table(header, rows):
+def table(header, rows, caption=None):
+    TABLES.append({"caption": caption or _heading[0], "header": list(header), "rows": [list(map(str, r)) for r in rows]})
     p("| " + " | ".join(header) + " |")
     p("|" + "---|" * len(header))
     for r in rows:
@@ -226,6 +232,10 @@ def main():
     for name, x in (("sorted", s_), ("shuffled", h_)):
         p(f"- {name} vs chance 1/10: binomial p = {fmt_p(ss.binomtest(sum(x), len(x), 0.1).pvalue)}")
     p("")
+    table(["display order", "Agent 1 won outright", "p vs chance 1/10 (binomial)"],
+          [["sorted (A1 first)", f"{sum(s_)}/{len(keys)}", fmt_p(ss.binomtest(sum(s_), len(s_), 0.1).pvalue)],
+           ["shuffled per viewer", f"{sum(h_)}/{len(keys)}", fmt_p(ss.binomtest(sum(h_), len(h_), 0.1).pvalue)],
+           ["sorted vs shuffled (exact McNemar)", f"discordant {b01} vs {b10}", fmt_p(mc)]])
 
     # ---------- H6 ----------
     p("## H6. Chat + a talking confederate (Gemma)")
@@ -338,8 +348,117 @@ def main():
         table(["model", "n (shuffled order)", "mean ρ(game, rounds) [95% CI]", "p (ρ≠0)", "game 1 → 10 rounds",
                "fixed-order mean ρ", "p (shuffled vs fixed)"], rows)
 
+    extra_sections()
     OUT.write_text("\n".join(L) + "\n")
     print("\n".join(L))
+    write_latex()
+
+
+
+def schelling_by_board(root, model, boards=None):
+    by = {}
+    for r in jl(Path(root) / model / "calls.jsonl"):
+        if boards is None or r["board_seed"] in boards:
+            by.setdefault(r["board_seed"], []).append(r["pick"])
+    out = []
+    for b_, ps in sorted(by.items()):
+        c = Counter(x for x in ps if x is not None); n = len(ps)
+        if n > 1:
+            out.append(sum(k * (k - 1) for k in c.values()) / (n * (n - 1)))
+    return out
+
+
+def extra_sections():
+    # ---------- Schelling tell / no-tell ----------
+    p("## Schelling framing: told nothing / told 'copies of you' / told 'different models' (boards 0-3)")
+    p("Copy-match per board, mean over the 4 boards. Within model, Wilcoxon signed-rank paired by board vs the no-framing baseline "
+      "(n = 4 boards: the smallest possible exact p is 0.125, so these are descriptive).")
+    p("")
+    rows = []
+    for m in [x for x in MODELS if x != "qwen3.5-397b"]:
+        b0 = schelling_by_board("runs/schelling1", m, {0, 1, 2, 3})
+        bc = schelling_by_board("runs/schelling_copies", m, {0, 1, 2, 3})
+        bo = schelling_by_board("runs/schelling_others", m, {0, 1, 2, 3})
+        if not (b0 and bc and bo):
+            continue
+        rows.append([LABEL[m], f"{np.mean(b0):.2f}", f"{np.mean(bc):.2f}", f"{np.mean(bo):.2f}",
+                     f"{np.mean(bc) - np.mean(b0):+.2f}", f"{np.mean(bo) - np.mean(b0):+.2f}"])
+    table(["model", "no framing", "'copies of you'", "'different models'", "copies − none", "different − none"], rows)
+
+    # ---------- mixed-model groups ----------
+    mc = sessions("runs/mixed1_control/control/mix-six/s*")
+    if mc:
+        p("## Mixed-model groups (9-10 agents drawn from 6 models; no Qwen3.5-397B)")
+        p("Session mean rounds to consensus; Mann–Whitney vs all same-model control sessions pooled.")
+        p("")
+        mix = [np.mean(rounds_by_game(d)) for d in mc]
+        same = [np.mean(rounds_by_game(d)) for m in MODELS for d in S("control", m)]
+        mw = ss.mannwhitneyu(mix, same, alternative="two-sided")
+        rows = [["control, mixed models", len(mix), "{:.2f} [{:.2f}, {:.2f}]".format(*boot(mix)),
+                 f"{sum(g['converged'] for d in mc for g in jl(d / 'games.jsonl'))}/{10 * len(mc)}", fmt_p(mw.pvalue)],
+                ["control, same model (all 7)", len(same), "{:.2f} [{:.2f}, {:.2f}]".format(*boot(same)), "350/350", "–"]]
+        mb = sessions("runs/mixed1_badapple/badapple/mix-six/s*")
+        if mb:
+            mbr = [np.mean(rounds_by_game(d)) for d in mb]
+            rows.append(["bad apple, mixed models", len(mb), "{:.2f} [{:.2f}, {:.2f}]".format(*boot(mbr)),
+                         f"{sum(g['converged'] for d in mb for g in jl(d / 'games.jsonl'))}/{10 * len(mb)}", "–"])
+        table(["groups", "sessions", "mean rounds [95% CI]", "games converged", "p (vs same-model)"], rows)
+
+    # ---------- reasoning-trace validation ----------
+    jr = Path("results/judge/judge_claude_report.md")
+    if jr.exists():
+        import re as _re
+        p("## Reasoning-trace measures: regex vs two LLM judges (140 bad-apple traces)")
+        p("")
+        rows = []
+        for line in jr.read_text().splitlines():
+            m = _re.match(r"\| (mentions holder|holder fixed/stubborn|holder not a real agent|considers switching to holder) \| (.+) \|$", line)
+            if m:
+                rows.append([m.group(1)] + [c.strip() for c in m.group(2).split("|")])
+        if rows:
+            table(["measure", "regex rate", "GLM-5.2 judge", "Claude judge", "Claude–GLM agree / κ", "Claude–regex agree / κ"], rows)
+
+
+# ---------------- LaTeX output ----------------
+_SYM = {"ρ": r"$\rho$", "κ": r"$\kappa$", "≠": r"$\neq$", "→": r"$\to$", "≈": r"$\approx$", "×": r"$\times$",
+        "–": "--", "−": "$-$", "π": r"$\pi$", "²": r"$^2$", "√": r"$\surd$", "∛": r"$\sqrt[3]{}$", "≥": r"$\geq$", "≤": r"$\leq$",
+        "'": "'", "“": "``", "”": "''"}
+
+
+def tex(x: str) -> str:
+    x = str(x)
+    out = []
+    for ch in x:
+        if ch in "&%#_$":
+            out.append("\\" + ch)
+        elif ch in "{}":
+            out.append("\\" + ch)
+        elif ch == "<":
+            out.append("$<$")
+        elif ch == ">":
+            out.append("$>$")
+        elif ch in _SYM:
+            out.append(_SYM[ch])
+        else:
+            out.append(ch)
+    return "".join(out)
+
+
+def write_latex(outdir=Path("paper/appendix/tables")):
+    outdir.mkdir(parents=True, exist_ok=True)
+    for f in outdir.glob("stat_*.tex"):
+        f.unlink()
+    for i, t in enumerate(TABLES, 1):
+        ncol = len(t["header"])
+        spec = "l" + "r" * (ncol - 1)
+        body = [r"\begin{tabular}{" + spec + "}", r"\toprule",
+                " & ".join(r"\textbf{" + tex(h) + "}" for h in t["header"]) + r" \\", r"\midrule"]
+        body += [" & ".join(tex(c) for c in r) + r" \\" for r in t["rows"]]
+        body += [r"\bottomrule", r"\end{tabular}"]
+        (outdir / f"stat_{i:02d}.tex").write_text("% " + t["caption"] + "\n" + "\n".join(body) + "\n")
+    (outdir / "index.json").write_text(json.dumps([{"file": f"stat_{i:02d}.tex", "caption": t["caption"]}
+                                                    for i, t in enumerate(TABLES, 1)], indent=1, ensure_ascii=False))
+    print(f"wrote {len(TABLES)} LaTeX tables to {outdir}")
 
 
 if __name__ == "__main__":

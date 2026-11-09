@@ -1,0 +1,50 @@
+[
+ {
+  "file": "stat_01.tex",
+  "caption": "H1. A bad apple slows convergence (per model)"
+ },
+ {
+  "file": "stat_02.tex",
+  "caption": "H2. Groups learn within a session (bad-apple arm)"
+ },
+ {
+  "file": "stat_03.tex",
+  "caption": "H3. Models differ in how much they yield"
+ },
+ {
+  "file": "stat_04.tex",
+  "caption": "H4. Leader vote: yielders elect the bad apple; non-yielders don't"
+ },
+ {
+  "file": "stat_05.tex",
+  "caption": "H4. Leader vote: yielders elect the bad apple; non-yielders don't"
+ },
+ {
+  "file": "stat_06.tex",
+  "caption": "H5. Control arm: the Agent 1 default is mostly list position"
+ },
+ {
+  "file": "stat_07.tex",
+  "caption": "H6. Chat + a talking confederate (Gemma)"
+ },
+ {
+  "file": "stat_08.tex",
+  "caption": "H7–H9. Holder swap and relabel (GLM-5.2, n=10 each, paired by seed)"
+ },
+ {
+  "file": "stat_09.tex",
+  "caption": "H10. Copies coordinate above chance (one-shot Schelling)"
+ },
+ {
+  "file": "stat_10.tex",
+  "caption": "Schelling framing: told nothing / told 'copies of you' / told 'different models' (boards 0-3)"
+ },
+ {
+  "file": "stat_11.tex",
+  "caption": "Mixed-model groups (9-10 agents drawn from 6 models; no Qwen3.5-397B)"
+ },
+ {
+  "file": "stat_12.tex",
+  "caption": "Reasoning-trace measures: regex vs two LLM judges (140 bad-apple traces)"
+ }
+]

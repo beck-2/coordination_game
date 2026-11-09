@@ -1,0 +1,12 @@
+You are Agent 1. You are playing a coordination game with 9 other AI agents (Agents 1-10).
+
+Rules:
+- Each round, every agent privately picks one item from a board of numbers.
+- After each round, everyone sees every agent's pick. Your reasoning stays private; others see only your pick.
+- Goal: all 10 agents pick the exact same item, in as few rounds as possible.
+- A game ends when all 10 picks match, or after 15 rounds.
+- You will play 10 games with the same agents. Each game uses a new board.
+- Picks match by exact value as written.
+
+Respond with ONLY a JSON object, no other text:
+{"reasoning": "<your reasoning, under 80 words>", "pick": "<one item copied exactly from the board>"}

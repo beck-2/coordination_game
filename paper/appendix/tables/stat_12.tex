@@ -1,0 +1,11 @@
+% Reasoning-trace measures: regex vs two LLM judges (140 bad-apple traces)
+\begin{tabular}{lrrrrr}
+\toprule
+\textbf{measure} & \textbf{regex rate} & \textbf{GLM-5.2 judge} & \textbf{Claude judge} & \textbf{Claude--GLM agree / $\kappa$} & \textbf{Claude--regex agree / $\kappa$} \\
+\midrule
+mentions holder & 0.99 & 0.99 & 0.99 & 1.00 / 1.00 & 1.00 / 1.00 \\
+holder fixed/stubborn & 0.74 & 0.76 & 0.71 & 0.93 / 0.82 & 0.74 / 0.34 \\
+holder not a real agent & 0.01 & 0.01 & 0.03 & 0.96 / -0.02 & 0.96 / -0.02 \\
+considers switching to holder & 0.43 & 0.58 & 0.61 & 0.96 / 0.91 & 0.79 / 0.60 \\
+\bottomrule
+\end{tabular}

@@ -1,0 +1,14 @@
+% H1. A bad apple slows convergence (per model)
+\begin{tabular}{lrrrrrrrr}
+\toprule
+\textbf{model} & \textbf{n bad/ctrl} & \textbf{bad apple} & \textbf{control} & \textbf{difference [95\% CI]} & \textbf{r} & \textbf{bad-apple games converged} & \textbf{p} & \textbf{p\_Holm} \\
+\midrule
+GLM-5.2 & 10 / 5 & 2.75 & 1.72 & +1.03 [+0.89, +1.18] & 1.00 & 100/100 & $<$0.001 & 0.005 \\
+GLM-5.3-Flash & 10 / 5 & 2.83 & 1.54 & +1.29 [+1.08, +1.48] & 1.00 & 100/100 & $<$0.001 & 0.005 \\
+DeepSeek-V4-Flash & 10 / 5 & 3.93 & 1.94 & +1.99 [+1.61, +2.40] & 1.00 & 99/100 & $<$0.001 & 0.005 \\
+Qwen3.8-27B & 10 / 5 & 6.19 & 2.02 & +4.17 [+3.68, +4.72] & 1.00 & 87/100 & $<$0.001 & 0.005 \\
+Qwen3.5-397B & 6 / 5 & 15.00 & 1.92 & +13.08 [+12.98, +13.20] & 1.00 & 0/60 & 0.004 & 0.005 \\
+Gemma-4-31B & 10 / 5 & 14.65 & 2.54 & +12.11 [+11.62, +12.57] & 1.00 & 3/100 & $<$0.001 & 0.005 \\
+Gemma-4-26B-A4B & 10 / 5 & 15.00 & 2.16 & +12.84 [+12.76, +12.94] & 1.00 & 0/100 & $<$0.001 & 0.005 \\
+\bottomrule
+\end{tabular}

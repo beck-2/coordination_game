@@ -82,6 +82,12 @@ Agent 1 won: sorted 23/35, shuffled 10/35; discordant pairs 13 (sorted only) vs 
 - sorted vs chance 1/10: binomial p = <0.001
 - shuffled vs chance 1/10: binomial p = 0.002
 
+| display order | Agent 1 won outright | p vs chance 1/10 (binomial) |
+|---|---|---|
+| sorted (A1 first) | 23/35 | <0.001 |
+| shuffled per viewer | 10/35 | 0.002 |
+| sorted vs shuffled (exact McNemar) | discordant 13 vs 0 | <0.001 |
+
 ## H6. Chat + a talking confederate (Gemma)
 Outcome: games converged out of 10 per session. Mann–Whitney chat (n=5) vs no-chat bad apple (n=10); Fisher's exact on sessions with ≥1 converged game. Holm over the 2 models.
 
@@ -113,4 +119,33 @@ Outcome: per-board probability that two samples of the model match (12 boards). 
 | Qwen3.5-397B | 12 | 0.47 [0.34, 0.60] | 9.4× | <0.001 | 0.003 |
 | Gemma-4-31B | 12 | 0.10 [0.06, 0.15] | 2.0× | 0.027 | 0.027 |
 | Gemma-4-26B-A4B | 12 | 0.23 [0.16, 0.29] | 4.6× | <0.001 | 0.003 |
+
+## Schelling framing: told nothing / told 'copies of you' / told 'different models' (boards 0-3)
+Copy-match per board, mean over the 4 boards. Within model, Wilcoxon signed-rank paired by board vs the no-framing baseline (n = 4 boards: the smallest possible exact p is 0.125, so these are descriptive).
+
+| model | no framing | 'copies of you' | 'different models' | copies − none | different − none |
+|---|---|---|---|---|---|
+| GLM-5.2 | 0.57 | 0.57 | 0.68 | +0.00 | +0.12 |
+| GLM-5.3-Flash | 0.64 | 0.74 | 0.64 | +0.09 | +0.00 |
+| DeepSeek-V4-Flash | 0.33 | 0.32 | 0.33 | -0.01 | +0.00 |
+| Qwen3.8-27B | 0.27 | 0.16 | 0.24 | -0.12 | -0.04 |
+| Gemma-4-31B | 0.09 | 0.14 | 0.29 | +0.06 | +0.20 |
+| Gemma-4-26B-A4B | 0.22 | 0.08 | 0.31 | -0.14 | +0.09 |
+
+## Mixed-model groups (9-10 agents drawn from 6 models; no Qwen3.5-397B)
+Session mean rounds to consensus; Mann–Whitney vs all same-model control sessions pooled.
+
+| groups | sessions | mean rounds [95% CI] | games converged | p (vs same-model) |
+|---|---|---|---|---|
+| control, mixed models | 5 | 2.04 [2.00, 2.08] | 50/50 | 0.457 |
+| control, same model (all 7) | 35 | 1.98 [1.86, 2.10] | 350/350 | – |
+
+## Reasoning-trace measures: regex vs two LLM judges (140 bad-apple traces)
+
+| measure | regex rate | GLM-5.2 judge | Claude judge | Claude–GLM agree / κ | Claude–regex agree / κ |
+|---|---|---|---|---|---|
+| mentions holder | 0.99 | 0.99 | 0.99 | 1.00 / 1.00 | 1.00 / 1.00 |
+| holder fixed/stubborn | 0.74 | 0.76 | 0.71 | 0.93 / 0.82 | 0.74 / 0.34 |
+| holder not a real agent | 0.01 | 0.01 | 0.03 | 0.96 / -0.02 | 0.96 / -0.02 |
+| considers switching to holder | 0.43 | 0.58 | 0.61 | 0.96 / 0.91 | 0.79 / 0.60 |
 

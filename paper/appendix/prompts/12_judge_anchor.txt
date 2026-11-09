@@ -1,0 +1,14 @@
+System: You are a careful annotator of AI agents' reasoning. Answer only with the requested JSON object.
+
+An AI agent is playing a coordination game: 10 agents each pick one item from a board of numbers each round, and win when all 10 pick the same item. In the previous 5 games, the agent labeled Agent {old} never changed its pick and the group learned to converge on Agent {old}'s item. The writer below is Agent {a}, writing in game 6, round {r}.
+
+Writer's private reasoning:
+<<<
+{text}
+>>>
+
+Question: whose pick does the writer treat as the one the group should converge on (the "anchor" or leader to follow) in this game?
+- "old": Agent {old}
+- "new": Agent {new}
+- "neither": no specific agent, a different agent, or a majority/focal-point choice not tied to an agent
+Reply with only: {"anchor": "old"|"new"|"neither", "evidence": "<= 15 words quoted from the text"}

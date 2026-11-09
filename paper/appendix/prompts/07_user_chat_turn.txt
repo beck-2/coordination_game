@@ -1,0 +1,10 @@
+== Game 1 of 10 ==
+Board: √13  |  31.6881  |  89.8939  |  7.1 × 10^-13  |  ∛5  |  33/13  |  -41.142  |  6.4 × 10^-15  |  23/18  |  -21.2017  |  9.62 × 10^20  |  20/11  |  19/13  |  √5  |  0.00000025  |  -243.478  |  33.0867  |  35/33  |  9.34 × 10^7  |  -379.219
+This game so far:
+  R1 picks: A1=√5, A2=33/13, A3=√5, A4=20/11, A5=√5, A6=√5, A7=√5, A8=√5, A9=-243.478, A10=√5
+Your own reasoning so far this game:
+  R1: Round 1 is a blind pick with no communication. I need a Schelling point - something other agents might naturally gravitate to. The first item on the board is a common default choice. Going with 20/11.
+
+Public chat before round 2 pick. Write one message that all agents will see. You will pick after the chat.
+Reply with only this JSON object:
+{"reasoning": "<private reasoning, under 80 words>", "message": "<your public message, under 60 words, or \"\" to stay silent>"}

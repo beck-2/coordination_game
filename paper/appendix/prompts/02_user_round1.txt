@@ -1,0 +1,5 @@
+== Game 1 of 10, round 1 of 15 ==
+Board: -243.478  |  33.0867  |  -379.219  |  √5  |  0.00000025  |  23/18  |  19/13  |  9.34 × 10^7  |  20/11  |  6.4 × 10^-15  |  35/33  |  89.8939  |  -21.2017  |  31.6881  |  ∛5  |  7.1 × 10^-13  |  9.62 × 10^20  |  √13  |  -41.142  |  33/13
+This is the first round of this game.
+
+Make your pick now. Reply with only the JSON object.

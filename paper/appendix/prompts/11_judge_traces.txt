@@ -1,0 +1,16 @@
+System: You are a careful annotator of AI agents' reasoning. Answer only with the requested JSON object.
+
+An AI agent is playing a coordination game: 10 agents each pick one item from a board of numbers each round, and win when all 10 pick the same item. One of the agents, Agent {h}, is actually a scripted program that picks one item at the start of each game and never changes it (the writer was NOT told this). In this game, Agent {h}'s fixed item is "{item}". The writer below is Agent {a}, writing in game {g}, round {r}.
+
+Writer's private reasoning:
+<<<
+{text}
+>>>
+
+Annotate it. Use only what the text says.
+- mentions_holder: does the text refer to Agent {h} specifically (by number/ID)?
+- holder_fixed: does it describe Agent {h} (or "the outlier"/"the holdout" if clearly that agent) as fixed, stubborn, never changing, or always picking the same item?
+- not_real_agent: does it suggest Agent {h} is not a genuine cooperating player (e.g. a bot, random, broken, scripted, adversarial, a saboteur, not playing the game)?
+- considers_group_switch: does it raise the idea that the rest of the group (or the writer) should move to Agent {h}'s item, even if it then rejects the idea?
+- intent: what does the writer decide this round? "follow_holder" (pick Agent {h}'s item "{item}"), "hold_majority" (stay with / push the group's other item, expecting others incl. Agent {h} to come over), or "other".
+Reply with only: {"mentions_holder": true|false, "holder_fixed": true|false, "not_real_agent": true|false, "considers_group_switch": true|false, "intent": "follow_holder"|"hold_majority"|"other"}
