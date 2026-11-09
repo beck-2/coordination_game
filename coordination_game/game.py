@@ -122,6 +122,9 @@ class Config:
     # The bot itself never changes and keeps holding. Earlier games keep their original labels. 0 = off.
     relabel_game: int = 0
     relabel_partner: int = 0
+    # Board order: False = boards 0..n_games-1 in file order (every earlier run); True = the same boards in a per-seed
+    # random order (tests whether "learning across games" is just later boards being easier).
+    shuffle_boards: bool = False
 
     @property
     def comm(self) -> bool:
@@ -192,7 +195,10 @@ class Session:
             assert cfg.relabel_partner in range(1, cfg.n_agents + 1) and cfg.relabel_partner not in cfg.bad_apple_ids
         if isinstance(backends, Backend):
             backends = {a: backends for a in range(1, cfg.n_agents + 1)}
-        self.cfg, self.boards, self.backends, self.out = cfg, boards[: cfg.n_games], backends, out_dir
+        boards = list(boards[: cfg.n_games])
+        if cfg.shuffle_boards:
+            random.Random(f"board-order-{cfg.seed}").shuffle(boards)
+        self.cfg, self.boards, self.backends, self.out = cfg, boards, backends, out_dir
         self.out.mkdir(parents=True, exist_ok=True)
         self.sem = asyncio.Semaphore(cfg.concurrency)
         self.history: list[dict] = []  # per past game: {rounds: [ {agent: pick} ], converged_on, chat}

@@ -43,6 +43,8 @@ ARMS = {
     # Relabel: the SAME scripted bot holds all game; from game 6 it trades labels with one LLM agent in everyone's view
     # except that agent's own. No LLM ever "was" the holder (avoids swap1's old-holder-takes-charge wrinkle).
     "badapple_relabel": dict(holder="scripted", relabel_game=6),
+    # Same as badapple, but each session plays boards 0-9 in its own seeded random order (board-order confound check).
+    "badapple_boardshuf": dict(holder="scripted", shuffle_boards=True),
     "chat_control":     dict(holder=None, chat_turns=1, debrief_turns=2),
     "chat_confed_safe": dict(holder="confed", confederate_clause=True, chat_turns=1, debrief_turns=2),
     "chat_confed_bare": dict(holder="confed", confederate_clause=False, chat_turns=1, debrief_turns=2),
@@ -78,6 +80,11 @@ PLANS = {
     # Display-only label swap at game 6 (handoff exp. 1 variant): no LLM ever acted as the holder.
     "relabel1": dict(arms={"badapple_relabel": 10}, models=["glm-5.2"], temperature=1.0,
                      boards="data/boards_v2.json", n_games=10, max_rounds=15),
+    # Board-order replication (stats plan decision 3): cheap conformer models, same seeds 0-4 as overnight1.
+    "boardshuf1": dict(arms={"badapple_boardshuf": 5}, models=["deepseek-v4-flash", "glm-53-flash"], temperature=1.0,
+                       boards="data/boards_v2.json", n_games=10, max_rounds=15),
+    "mockboardshuf": dict(arms={"badapple_boardshuf": 1}, models=["mock-a"], temperature=1.0,
+                          boards="data/boards_v2.json", n_games=10, max_rounds=3, backend="mock"),
     "mockrelabel": dict(arms={"badapple_relabel": 2}, models=["mock-a"], temperature=1.0,
                         boards="data/boards_v2.json", n_games=8, max_rounds=4, backend="mock"),
     "mockswap": dict(arms={"badapple_swap": 2}, models=["mock-a"], temperature=1.0,
